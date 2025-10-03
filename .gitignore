@@ -1,0 +1,27 @@
+# Environment variables
+.env
+.env.local
+.env.production
+
+# AWS credentials
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Firebase
+.firebase/
+.firebase-tools.json
+firestore-debug.log
+ui-debug.log
+
+# Firebase service account keys (backend)
+backend/firebase-service.json
+frontend/firebase.js

@@ -1,0 +1,114 @@
+.att-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  max-width: 500px;
+  margin: auto;
+  font-family: Arial, sans-serif;
+}
+
+.video-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #f3f3f3;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hidden {
+  display: none;
+}
+
+.placeholder {
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.error {
+  color: red;
+  font-weight: bold;
+}
+
+.loading {
+  font-size: 1rem;
+  color: #555;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #ddd;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #2e7d32);
+  transition: width 0.2s linear;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+}
+
+.controls button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.controls button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.controls button:first-child {
+  background: #4caf50;
+  color: white;
+}
+
+.controls button:last-child {
+  background: #e53935;
+  color: white;
+}
+
+.result {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-weight: bold;
+  color: white;
+}
+
+.badge.high {
+  background: #4caf50;
+}
+
+.badge.medium {
+  background: #ff9800;
+}
+
+.badge.low {
+  background: #e53935;
+}

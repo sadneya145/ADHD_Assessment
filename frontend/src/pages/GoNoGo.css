@@ -1,0 +1,118 @@
+/* General Screen */
+.screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  padding: 20px;
+}
+
+/* Card Container */
+.card {
+  max-width: 400px;
+  width: 100%;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+  padding: 25px;
+  text-align: center;
+}
+
+.card h2 {
+  font-size: 22px;
+  margin-bottom: 15px;
+}
+
+.card p {
+  color: #555;
+  margin-bottom: 20px;
+}
+
+/* Signal Circles */
+.signal {
+  width: 120px;
+  height: 120px;
+  margin: 20px auto;
+  border-radius: 50%;
+  font-size: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signal.go {
+  background: #22c55e;
+  color: white;
+}
+
+.signal.no-go {
+  background: #ef4444;
+  color: white;
+}
+
+.signal.wait {
+  background: #d1d5db;
+  color: #374151;
+}
+
+/* Buttons */
+.btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: 0.3s;
+}
+
+.btn.start {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn.start:hover {
+  background: #2563eb;
+}
+
+.btn.react {
+  width: 150px;
+  height: 60px;
+  font-size: 20px;
+  background: #22c55e;
+  color: white;
+}
+
+.btn.react:hover {
+  background: #16a34a;
+}
+
+.btn.play-again {
+  width: 100%;
+  background: #3b82f6;
+  color: white;
+}
+
+.btn.play-again:hover {
+  background: #2563eb;
+}
+
+/* Results */
+.results {
+  margin: 20px 0;
+  text-align: left;
+}
+
+.result-item {
+  background: #f3f4f6;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+.result-item span {
+  font-weight: bold;
+}

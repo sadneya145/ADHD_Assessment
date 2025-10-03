@@ -1,0 +1,83 @@
+.stroop-container {
+  max-width: 500px;
+  margin: 40px auto;
+  padding: 20px;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.status {
+  margin-bottom: 15px;
+  font-size: 16px;
+  color: #555;
+}
+
+.word-display {
+  font-size: 64px;
+  font-weight: bold;
+  margin: 40px 0;
+  text-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+}
+
+.buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.color-btn {
+  padding: 20px;
+  font-size: 22px;
+  font-weight: bold;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #fff;
+  text-shadow: 1px 1px 2px #000;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.color-btn:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+.stroop-btn {
+  padding: 12px 24px;
+  font-size: 18px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: 0.2s;
+}
+
+.stroop-btn.start {
+  background: #007BFF;
+  color: white;
+}
+
+.stroop-btn.start:hover {
+  background: #0056b3;
+}
+
+.stroop-btn.restart {
+  background: #28a745;
+  color: white;
+}
+
+.stroop-btn.restart:hover {
+  background: #1e7e34;
+}
+
+.result-box {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+  text-align: left;
+}
