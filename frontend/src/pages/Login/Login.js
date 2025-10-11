@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { auth, provider, signInWithPopup } from '../firebase';
+import { auth, provider, signInWithPopup } from '../../firebase';
 import './Login.css';
 
 export default function Login() {

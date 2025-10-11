@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { auth, provider, signInWithPopup } from '../firebase';
+import { auth, provider, signInWithPopup } from '../../firebase';
 import { Eye, EyeOff, Brain, AlertCircle } from 'lucide-react';
 import './Signup.css'; // Import CSS file
 

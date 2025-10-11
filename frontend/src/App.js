@@ -1,13 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import Home from './pages/Home';
-import Form from './pages/Form';
-import NBackTask from './pages/NBack';
-import GoNoGoTask from './pages/GoNoGo';
-import StroopTask from './pages/Stroop';
-import WebcamAttentiveness from './pages/WebcamAttentiveness'
+import Login from './pages/Login/Login';
+import Signup from './pages/Signup/Signup';
+import Home from './pages/Home/Home';
+import Form from './pages/Form/Form';
+import NBackTask from './pages/NBack/NBack';
+import GoNoGoTask from './pages/GoNoGo/GoNoGo';
+import StroopTask from './pages/Stroop/Stroop';
+import WebcamAttentiveness from './pages/WebCam/WebcamAttentiveness';
+import Mouse from './pages/Mouse/Mouse';
 
 function App() {
   return (
@@ -21,7 +22,7 @@ function App() {
         <Route path="/GoNoGo" element={<GoNoGoTask />} />
         <Route path="/Stroop" element={<StroopTask />} />
         <Route path="/WebCam" element={< WebcamAttentiveness/>} />
-
+        <Route path="/mouse" element={< Mouse/>} />
       </Routes>
     </Router>
   );
