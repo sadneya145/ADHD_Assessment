@@ -28,10 +28,10 @@ const Header = () => {
 
                 <nav className="header-nav">
                     <Link to="/home" className="nav-link">Home</Link>
-                    <Link to="/games" className="nav-link">Games</Link>
-                    <Link to="/webcam" className="nav-link">Video Assessment</Link>
-                    <Link to="/form" className="nav-link">Behavioral Form</Link>
-                    <Link to="/about" className="nav-link">About Us</Link>
+                    <Link to="/home/game" className="nav-link">Games</Link>
+                    <Link to="/home/WebCam" className="nav-link">Video Assessment</Link>
+                    <Link to="/home/form" className="nav-link">Behavioral Form</Link>
+                    <Link to="/home/about" className="nav-link">About Us</Link>
                 </nav>
 
                 <div className="header-right">
