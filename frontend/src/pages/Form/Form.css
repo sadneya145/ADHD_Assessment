@@ -1,14 +1,25 @@
+/* Add this at the top of your Form.css file */
+
+/* Prevent autoscroll on page load */
+html {
+  scroll-behavior: smooth;
+}
+
 .bq-container {
   max-width: 900px;
   margin: 0 auto;
   padding: 2rem;
+  /* Prevent scroll restoration to this element */
+  scroll-margin-top: 0;
 }
 
 .bq-card {
   background: white;
   border-radius: 1.2rem;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
   padding: 2rem;
+  /* Ensure card doesn't trigger scroll on mount */
+  scroll-margin-top: 0;
 }
 
 .bq-header {
@@ -38,16 +49,19 @@
   font-size: 1.5rem;
   font-weight: bold;
   color: #111827;
+  margin: 0;
 }
 
 .bq-subtitle {
   font-size: 0.9rem;
   color: #6b7280;
+  margin: 0;
 }
 
 .bq-intro {
   color: #374151;
   margin-bottom: 1.5rem;
+  line-height: 1.6;
 }
 
 .bq-progress {
@@ -80,11 +94,18 @@
   transition: width 0.3s;
 }
 
+.bq-form {
+  /* Prevent form from being focused on mount */
+  outline: none;
+}
+
 .question-box {
   background: #f9fafb;
   padding: 1.2rem;
   border-radius: 1rem;
   margin-bottom: 1.5rem;
+  /* Prevent autoscroll to questions */
+  scroll-margin-top: 80px;
 }
 
 .question-header {
@@ -103,12 +124,17 @@
   align-items: center;
   justify-content: center;
   font-weight: bold;
+  flex-shrink: 0;
+}
+
+.question-text {
+  flex: 1;
 }
 
 .question-text p {
   font-weight: 500;
   color: #111827;
-  margin-bottom: 0.3rem;
+  margin: 0 0 0.5rem 0;
 }
 
 .tag {
@@ -117,6 +143,7 @@
   padding: 2px 8px;
   border-radius: 6px;
   font-weight: 600;
+  text-transform: capitalize;
 }
 
 .tag.inattentive {
@@ -148,11 +175,20 @@
   border: 2px solid #e5e7eb;
   background: white;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.2s ease;
+  color: #6b7280;
+  /* Prevent buttons from getting focus on mount */
+  outline: none;
+}
+
+.option-btn:focus {
+  outline: 2px solid #f43f5e;
+  outline-offset: 2px;
 }
 
 .option-btn:hover {
   background: #f3f4f6;
+  transform: translateY(-1px);
 }
 
 .option-btn.yes {
@@ -186,6 +222,10 @@
   margin-top: 2rem;
 }
 
+.bq-note p {
+  margin: 0;
+}
+
 .submit-btn {
   width: 100%;
   padding: 1rem;
@@ -196,11 +236,13 @@
   background: linear-gradient(to right, #f43f5e, #ec4899);
   border: none;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.2s ease;
+  outline: none;
 }
 
-.submit-btn:hover {
-  transform: scale(1.05);
+.submit-btn:hover:not(.disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);
 }
 
 .submit-btn.disabled {
@@ -208,4 +250,30 @@
   cursor: not-allowed;
   color: #6b7280;
   transform: none;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .bq-container {
+    padding: 1rem;
+  }
+
+  .bq-card {
+    padding: 1.5rem;
+  }
+
+  .options {
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+
+  .question-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .option-btn {
+    font-size: 0.9rem;
+    padding: 0.7rem;
+  }
 }

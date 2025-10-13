@@ -1,4 +1,5 @@
-
+import Header from '../Header/Header';
+import Footer from '../Footer/Footer';
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import './WebcamAttentiveness.css';
 
@@ -14,6 +15,23 @@ export default function WebcamAttentiveness() {
   const canvasRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const intervalRef = useRef(null);
+
+  useEffect(() => {
+    // Scroll to top when component mounts
+    window.scrollTo(0, 0);
+
+    // Disable scroll restoration
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    // Cleanup
+    return () => {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'auto';
+      }
+    };
+  }, []);
 
   // 🔹 Dummy function (replace with your AI function)
   const detectAttentiveness = async ({ webcamDataUri }) => {
@@ -109,40 +127,44 @@ export default function WebcamAttentiveness() {
   useEffect(() => stopCamera, [stopCamera]);
 
   return (
-    <div className="att-container">
-      <div className="video-box">
-        <video ref={videoRef} className="video" playsInline muted />
-        <canvas ref={canvasRef} className="hidden" />
-        {status === "idle" && <p className="placeholder">📷 Start Camera</p>}
-        {status === "error" && <p className="error">❌ {error}</p>}
-        {status === "initializing" && <p className="loading">⏳ Initializing...</p>}
-      </div>
-
-      {status === "running" && (
-        <div className="progress-bar">
-          <div className="progress" style={{ width: `${progress}%` }} />
+    <div>
+      <Header />
+      <div className="att-container">
+        <div className="video-box">
+          <video ref={videoRef} className="video" playsInline muted />
+          <canvas ref={canvasRef} className="hidden" />
+          {status === "idle" && <p className="placeholder">📷 Start Camera</p>}
+          {status === "error" && <p className="error">❌ {error}</p>}
+          {status === "initializing" && <p className="loading">⏳ Initializing...</p>}
         </div>
-      )}
 
-      <div className="controls">
-        <button onClick={startCamera} disabled={status === "running" || status === "initializing"}>
-          ▶️ Start Camera
-        </button>
-        <button onClick={() => { stopCamera(); setStatus("idle"); }} disabled={status === "idle"}>
-          ⏹ Stop Camera
-        </button>
-      </div>
+        {status === "running" && (
+          <div className="progress-bar">
+            <div className="progress" style={{ width: `${progress}%` }} />
+          </div>
+        )}
 
-      {result && (
-        <div className="result">
-          <p>Current Attentiveness Level:</p>
-          <span className={`badge ${result.attentivenessLevel.toLowerCase()}`}>
-            {result.attentivenessLevel}
-          </span>
+        <div className="controls">
+          <button onClick={startCamera} disabled={status === "running" || status === "initializing"}>
+            ▶️ Start Camera
+          </button>
+          <button onClick={() => { stopCamera(); setStatus("idle"); }} disabled={status === "idle"}>
+            ⏹ Stop Camera
+          </button>
         </div>
-      )}
 
-      {status === "processing" && <p className="loading">🔍 Analyzing...</p>}
+        {result && (
+          <div className="result">
+            <p>Current Attentiveness Level:</p>
+            <span className={`badge ${result.attentivenessLevel.toLowerCase()}`}>
+              {result.attentivenessLevel}
+            </span>
+          </div>
+        )}
+
+        {status === "processing" && <p className="loading">🔍 Analyzing...</p>}
+      </div>
+      <Footer />
     </div>
   );
 }

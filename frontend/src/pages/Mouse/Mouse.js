@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Circle, Square, Triangle, Star, Download } from 'lucide-react';
 import './MouseAnalysis.css';
+import Header from '../Header/Header';
+import Footer from '../Footer/Footer';
 
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL = 'http://localhost:5000'; // Change to your backend URL
 
 const shapeTypes = [
   { id: 'circle', color: '#FF6B6B', icon: Circle },
@@ -11,7 +13,7 @@ const shapeTypes = [
   { id: 'star', color: '#95E1D3', icon: Star },
 ];
 
-const ShapeGame = ({ token }) => {
+const ShapeGame = () => {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [score, setScore] = useState(0);
@@ -25,7 +27,20 @@ const ShapeGame = ({ token }) => {
   const startTimeRef = useRef(null);
   const gameAreaRef = useRef(null);
 
-  // Generate shapes at start and after every complete match
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    return () => {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'auto';
+      }
+    };
+  }, []);
+
+  // Generate shapes
   const generateShapes = useCallback(() => {
     const shapes = shapeTypes.map((type, idx) => ({
       ...type,
@@ -36,15 +51,18 @@ const ShapeGame = ({ token }) => {
     setCurrentShapes(shapes);
   }, []);
 
-  // Track mouse movement
-  const trackMouse = useCallback((e) => {
-    if (!gameStarted || gameEnded) return;
-    const currentTime = (Date.now() - startTimeRef.current) / 1000;
-    const rect = gameAreaRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setMouseData((prev) => [...prev, { time: currentTime, x, y }]);
-  }, [gameStarted, gameEnded]);
+  // Track mouse
+  const trackMouse = useCallback(
+    (e) => {
+      if (!gameStarted || gameEnded) return;
+      const currentTime = (Date.now() - startTimeRef.current) / 1000;
+      const rect = gameAreaRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      setMouseData((prev) => [...prev, { time: currentTime, x, y }]);
+    },
+    [gameStarted, gameEnded]
+  );
 
   // Start game
   const startGame = () => {
@@ -85,7 +103,9 @@ const ShapeGame = ({ token }) => {
     if (!draggedShape || draggedShape.id !== targetShape.id) return;
 
     setCurrentShapes((prev) =>
-      prev.map((s) => (s.id === targetShape.id ? { ...s, matched: true } : s))
+      prev.map((s) =>
+        s.id === targetShape.id ? { ...s, matched: true } : s
+      )
     );
     setScore((prev) => prev + 10);
     setDraggedShape(null);
@@ -97,7 +117,7 @@ const ShapeGame = ({ token }) => {
 
   const handleDragOver = (e) => e.preventDefault();
 
-  // Download mouse data
+  // Download data
   const downloadData = () => {
     const dataStr = JSON.stringify(mouseData, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -108,156 +128,165 @@ const ShapeGame = ({ token }) => {
     a.click();
   };
 
-const analyzeData = async () => {
-  const token = localStorage.getItem('token'); // retrieve JWT
-  if (!token) {
-    console.warn('No auth token found. Cannot analyze mouse data.');
-    setAnalysisResult({
-      adhd_type: 'N/A',
-      confidence: 0,
-      classifications: { message: 'No auth token' },
-    });
-    return;
-  }
+  // Backend analysis
+  const analyzeData = async () => {
+    const token = localStorage.getItem('token'); // JWT token
+    if (!token) {
+      setAnalysisResult({
+        adhd_type: 'N/A',
+        confidence: 0,
+        classifications: { message: 'No auth token' },
+      });
+      return;
+    }
 
-  setLoadingAnalysis(true);
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/analyze/mouse`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(mouseData),
-    });
+    setLoadingAnalysis(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/analyze/mouse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(mouseData),
+      });
 
-    if (!response.ok) throw new Error('Server error');
-    const result = await response.json();
-    setAnalysisResult(result);
-    localStorage.setItem('lastAnalysis', JSON.stringify(result));
-  } catch (err) {
-    console.warn('⚠ Backend failed:', err.message);
-    setAnalysisResult({
-      adhd_type: 'N/A',
-      confidence: 0,
-      classifications: { message: 'Backend not connected' },
-    });
-  } finally {
-    setLoadingAnalysis(false);
-  }
-};
+      if (!response.ok) throw new Error('Server error');
+      const result = await response.json();
+      setAnalysisResult(result);
+      localStorage.setItem('lastAnalysis', JSON.stringify(result));
+    } catch (err) {
+      console.warn('Backend analysis failed:', err.message);
+      setAnalysisResult({
+        adhd_type: 'N/A',
+        confidence: 0,
+        classifications: { message: 'Backend not connected' },
+      });
+    } finally {
+      setLoadingAnalysis(false);
+    }
+  };
 
   return (
-    <div className="game-container-mouse">
-      {!gameStarted ? (
-        <div className="start-screen">
-          <h1 className="game-title">Shape Match Challenge</h1>
-          <p className="game-subtitle">
-            Drag shapes to their matching outlines as quickly as possible!
-          </p>
-          <button onClick={startGame} className="start-button">
-            Start Game
-          </button>
-        </div>
-      ) : (
-        <div className="game-content">
-          <div className="status-bar">
-            <div className="status-text">Score: {score}</div>
-            <div className="status-text">Time: {timeLeft}s</div>
-          </div>
-
-          <div
-            ref={gameAreaRef}
-            onMouseMove={trackMouse}
-            className="game-area"
-          >
-            {currentShapes.map((shape) => {
-              const Icon = shape.icon;
-              return (
-                <div
-                  key={`target-${shape.id}`}
-                  onDrop={(e) => handleDrop(shape, e)}
-                  onDragOver={handleDragOver}
-                  style={{
-                    left: shape.targetPos.x,
-                    top: shape.targetPos.y,
-                    opacity: shape.matched ? 0.3 : 1,
-                  }}
-                  className="target-shape"
-                >
-                  <div
-                    className="target-border"
-                    style={{ borderColor: shape.color }}
-                  >
-                    <Icon size={48} color={shape.color} strokeWidth={1} />
-                  </div>
-                </div>
-              );
-            })}
-
-            {currentShapes.map(
-              (shape) =>
-                !shape.matched && (
-                  <div
-                    key={`source-${shape.id}`}
-                    draggable
-                    onDragStart={(e) => handleDragStart(shape, e)}
-                    style={{
-                      left: shape.sourcePos.x,
-                      top: shape.sourcePos.y,
-                      backgroundColor: shape.color,
-                    }}
-                    className="draggable-shape"
-                  >
-                    <shape.icon size={48} color="white" />
-                  </div>
-                )
-            )}
-          </div>
-
-          {gameEnded && (
-            <div className="end-screen">
-              <h2 className="end-title">Game Over!</h2>
-              <p className="end-score">Final Score: {score}</p>
-              <p className="end-moves">
-                Mouse movements recorded: {mouseData.length}
+    <div>
+      <Header />
+      <div className="game-container-mouse">
+        <div className="game-inner">
+          {!gameStarted ? (
+            <div className="start-screen">
+              <h1 className="game-title">Shape Match Challenge</h1>
+              <p className="game-subtitle">
+                Drag shapes to their matching outlines as quickly as possible!
               </p>
-              <div className="end-buttons">
-                <button onClick={startGame} className="play-again-button">
-                  Play Again
-                </button>
-                <button onClick={downloadData} className="download-button">
-                  <Download size={20} /> Download Data
-                </button>
+              <button onClick={startGame} className="start-button">
+                Start Game
+              </button>
+            </div>
+          ) : (
+            <div className="game-content">
+              <div className="status-bar">
+                <div className="status-text">Score: {score}</div>
+                <div className="status-text">Time: {timeLeft}s</div>
               </div>
 
-              {loadingAnalysis && <p>Analyzing mouse data...</p>}
+              <div
+                ref={gameAreaRef}
+                onMouseMove={trackMouse}
+                className="game-area"
+              >
+                {currentShapes.map((shape) => {
+                  const Icon = shape.icon;
+                  return (
+                    <div
+                      key={`target-${shape.id}`}
+                      onDrop={(e) => handleDrop(shape, e)}
+                      onDragOver={handleDragOver}
+                      style={{
+                        left: shape.targetPos.x,
+                        top: shape.targetPos.y,
+                        opacity: shape.matched ? 0.3 : 1,
+                      }}
+                      className="target-shape"
+                    >
+                      <div
+                        className="target-border"
+                        style={{ borderColor: shape.color }}
+                      >
+                        <Icon size={48} color={shape.color} strokeWidth={1} />
+                      </div>
+                    </div>
+                  );
+                })}
 
-              {analysisResult && !loadingAnalysis && (
-                <div className="analysis-box">
-                  <h3>🧠 ADHD Analysis Result</h3>
-                  <p>
-                    <strong>Type:</strong> {analysisResult.adhd_type}
+                {currentShapes.map(
+                  (shape) =>
+                    !shape.matched && (
+                      <div
+                        key={`source-${shape.id}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(shape, e)}
+                        style={{
+                          left: shape.sourcePos.x,
+                          top: shape.sourcePos.y,
+                          backgroundColor: shape.color,
+                        }}
+                        className="draggable-shape"
+                      >
+                        <shape.icon size={48} color="white" />
+                      </div>
+                    )
+                )}
+              </div>
+
+              {gameEnded && (
+                <div className="end-screen">
+                  <h2 className="end-title">Game Over!</h2>
+                  <p className="end-score">Final Score: {score}</p>
+                  <p className="end-moves">
+                    Mouse movements recorded: {mouseData.length}
                   </p>
-                  <p>
-                    <strong>Confidence:</strong>{' '}
-                    {analysisResult.confidence.toFixed(1)}%
-                  </p>
-                  <ul>
-                    {Object.entries(analysisResult.classifications).map(
-                      ([k, v]) => (
-                        <li key={k}>
-                          <strong>{k}:</strong> {v}
-                        </li>
-                      )
-                    )}
-                  </ul>
+                  <div className="end-buttons">
+                    <button
+                      onClick={startGame}
+                      className="play-again-button"
+                    >
+                      Play Again
+                    </button>
+                    <button onClick={downloadData} className="download-button">
+                      <Download size={20} /> Download Data
+                    </button>
+                  </div>
+
+                  {loadingAnalysis && <p>Analyzing mouse data...</p>}
+
+                  {analysisResult && !loadingAnalysis && (
+                    <div className="analysis-box">
+                      <h3>🧠 ADHD Analysis Result</h3>
+                      <p>
+                        <strong>Type:</strong> {analysisResult.adhd_type}
+                      </p>
+                      <p>
+                        <strong>Confidence:</strong>{' '}
+                        {analysisResult.confidence.toFixed(1)}%
+                      </p>
+                      <ul>
+                        {Object.entries(analysisResult.classifications).map(
+                          ([k, v]) => (
+                            <li key={k}>
+                              <strong>{k}:</strong> {v}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
-      )}
+      </div>
+      <Footer />
     </div>
   );
 };

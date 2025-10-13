@@ -6,7 +6,10 @@
   font-family: Arial, sans-serif;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-top: 100px;
+  margin-bottom: 100px;
+
 }
 
 .status {
@@ -19,7 +22,7 @@
   font-size: 64px;
   font-weight: bold;
   margin: 40px 0;
-  text-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+  text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .buttons-grid {

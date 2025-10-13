@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import Header from "../Header/Header";
+import Footer from "../Footer/Footer";
 import "./Nback.css";
 
 export default function NBackTask() {
@@ -25,92 +27,74 @@ export default function NBackTask() {
 
   const timerRef = useRef(null);
 
-  // ✅ Generate sequence
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+    return () => {
+      if ("scrollRestoration" in window.history) window.history.scrollRestoration = "auto";
+    };
+  }, []);
+
+  // Generate N-Back sequence
   const generateSequence = useCallback(() => {
     const newSequence = [];
     for (let i = 0; i < TOTAL_ROUNDS + nBack; i++) {
       const shouldMatch = i >= nBack && Math.random() < 0.3;
-      if (shouldMatch) {
-        newSequence.push(newSequence[i - nBack]);
-      } else {
-        let randomStimulus =
-          STIMULI_SET[Math.floor(Math.random() * STIMULI_SET.length)];
-        if (i >= nBack && randomStimulus === newSequence[i - nBack]) {
-          randomStimulus =
-            STIMULI_SET[
-              (STIMULI_SET.indexOf(randomStimulus) + 1) % STIMULI_SET.length
-            ];
-        }
+      if (shouldMatch) newSequence.push(newSequence[i - nBack]);
+      else {
+        let randomStimulus = STIMULI_SET[Math.floor(Math.random() * STIMULI_SET.length)];
+        if (i >= nBack && randomStimulus === newSequence[i - nBack])
+          randomStimulus = STIMULI_SET[(STIMULI_SET.indexOf(randomStimulus) + 1) % STIMULI_SET.length];
         newSequence.push(randomStimulus);
       }
     }
     setSequence(newSequence);
   }, [nBack]);
 
-  // ✅ Stimulus progression
+  // Move to next stimulus
   const nextStimulus = useCallback(() => {
     if (currentIndex >= nBack - 1 && currentIndex < TOTAL_ROUNDS + nBack - 1) {
-      const isTarget =
-        sequence[currentIndex + 1] === sequence[currentIndex + 1 - nBack];
-      if (!responded && isTarget) {
-        setScore((s) => ({ ...s, misses: s.misses + 1 }));
-      }
+      const isTarget = sequence[currentIndex + 1] === sequence[currentIndex + 1 - nBack];
+      if (!responded && isTarget) setScore((s) => ({ ...s, misses: s.misses + 1 }));
     }
     setResponded(false);
 
-    if (currentIndex < TOTAL_ROUNDS + nBack - 1) {
-      setCurrentIndex((prev) => prev + 1);
-    } else {
-      setGameState("finished");
-    }
+    if (currentIndex < TOTAL_ROUNDS + nBack - 1) setCurrentIndex((prev) => prev + 1);
+    else setGameState("finished");
   }, [currentIndex, nBack, responded, sequence]);
 
-  // ✅ Stimulus timer
+  // Stimulus timer
   useEffect(() => {
     if (gameState === "running") {
-      timerRef.current = setTimeout(
-        nextStimulus,
-        STIMULUS_DURATION + INTER_STIMULUS_INTERVAL
-      );
+      timerRef.current = setTimeout(nextStimulus, STIMULUS_DURATION + INTER_STIMULUS_INTERVAL);
     }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    return () => clearTimeout(timerRef.current);
   }, [gameState, currentIndex, nextStimulus]);
 
-  // ✅ Response handler
+  // Handle user response
   const handleResponse = () => {
     if (responded) return;
     setResponded(true);
 
     const isTarget = sequence[currentIndex] === sequence[currentIndex - nBack];
-    if (isTarget) {
-      setScore((s) => ({ ...s, hits: s.hits + 1 }));
-    } else {
-      setScore((s) => ({ ...s, falseAlarms: s.falseAlarms + 1 }));
-    }
+    if (isTarget) setScore((s) => ({ ...s, hits: s.hits + 1 }));
+    else setScore((s) => ({ ...s, falseAlarms: s.falseAlarms + 1 }));
   };
 
-  // ✅ Correct rejection check
+  // Correct rejection check
   useEffect(() => {
-    const checkCorrectRejection = () => {
+    const timeoutId = setTimeout(() => {
       if (gameState === "running" && currentIndex >= nBack) {
-        const isTarget =
-          sequence[currentIndex] === sequence[currentIndex - nBack];
-        if (!isTarget && !responded) {
-          setScore((s) => ({
-            ...s,
-            correctRejections: s.correctRejections + 1,
-          }));
-        }
+        const isTarget = sequence[currentIndex] === sequence[currentIndex - nBack];
+        if (!isTarget && !responded)
+          setScore((s) => ({ ...s, correctRejections: s.correctRejections + 1 }));
       }
-    };
-
-    const timeoutId = setTimeout(checkCorrectRejection, STIMULUS_DURATION);
+    }, STIMULUS_DURATION);
     return () => clearTimeout(timeoutId);
   }, [currentIndex, gameState, nBack, responded, sequence]);
 
-  // ✅ Start game
+  // Start game
   const startGame = () => {
     generateSequence();
     setCurrentIndex(0);
@@ -119,12 +103,10 @@ export default function NBackTask() {
     setGameState("running");
   };
 
-  // ✅ Send result to backend
+  // Submit results to backend
   const submitResultsToBackend = async () => {
     const totalTargets = score.hits + score.misses;
-    const accuracy =
-      totalTargets > 0 ? (score.hits / totalTargets) * 100 : 0;
-
+    const accuracy = totalTargets > 0 ? (score.hits / totalTargets) * 100 : 0;
     const payload = {
       nBack: {
         nLevel: nBack,
@@ -147,19 +129,13 @@ export default function NBackTask() {
 
       const res = await fetch("http://localhost:5000/api/assessments", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (res.ok) {
-        setApiMessage("✅ Results saved successfully!");
-      } else {
-        setApiMessage(`❌ Error: ${data.error || "Failed to save"}`);
-      }
+      if (res.ok) setApiMessage("✅ Results saved successfully!");
+      else setApiMessage(`❌ Error: ${data.error || "Failed to save"}`);
     } catch (error) {
       setApiMessage(`❌ Network error: ${error.message}`);
     } finally {
@@ -168,73 +144,81 @@ export default function NBackTask() {
   };
 
   // ================= UI =================
-
   if (gameState === "settings") {
     return (
-      <div className="settings-container">
-        <h2>N-Back Task Settings</h2>
-        <p>Set the value of N. A higher N is more challenging.</p>
-        <div>
-          <label>N = {nBack}</label>
-          <input
-            type="range"
-            min="1"
-            max="5"
-            step="1"
-            value={nBack}
-            onChange={(e) => setNBack(parseInt(e.target.value))}
-          />
+      <div>
+        <Header />
+        <div className="settings-container">
+          <h2>N-Back Task Settings</h2>
+          <p>Set the value of N. A higher N is more challenging.</p>
+          <div>
+            <label>N = {nBack}</label>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={nBack}
+              onChange={(e) => setNBack(parseInt(e.target.value))}
+            />
+          </div>
+          <button onClick={startGame}>Start Game (N={nBack})</button>
         </div>
-        <button onClick={startGame}>Start Game (N={nBack})</button>
+        <Footer />
       </div>
     );
   }
 
   if (gameState === "finished") {
     const totalTargets = score.hits + score.misses;
-    const accuracy =
-      totalTargets > 0 ? ((score.hits / totalTargets) * 100).toFixed(1) : 0;
+    const accuracy = totalTargets > 0 ? ((score.hits / totalTargets) * 100).toFixed(1) : 0;
 
     return (
-      <div className="results-card">
-        <h2>Results for N={nBack}</h2>
-        <div className="results-grid">
-          <div className="result-item">Hits: {score.hits}</div>
-          <div className="result-item">Misses: {score.misses}</div>
-          <div className="result-item">False Alarms: {score.falseAlarms}</div>
-          <div className="result-item">
-            Correct Rejections: {score.correctRejections}
+      <div>
+        <Header />
+        <div className="results-card">
+          <h2>Results for N={nBack}</h2>
+          <div className="results-grid">
+            <div className="result-item">Hits: {score.hits}</div>
+            <div className="result-item">Misses: {score.misses}</div>
+            <div className="result-item">False Alarms: {score.falseAlarms}</div>
+            <div className="result-item">Correct Rejections: {score.correctRejections}</div>
           </div>
+          <div className="accuracy">Accuracy: {accuracy}%</div>
+          <button disabled={loading} onClick={submitResultsToBackend}>
+            {loading ? "Saving..." : "Save Results"}
+          </button>
+          {apiMessage && <p>{apiMessage}</p>}
+          <button onClick={() => setGameState("settings")}>Play Again</button>
         </div>
-        <div className="accuracy">Accuracy: {accuracy}%</div>
-        <button disabled={loading} onClick={submitResultsToBackend}>
-          {loading ? "Saving..." : "Save Results"}
-        </button>
-        {apiMessage && <p>{apiMessage}</p>}
-        <button onClick={() => setGameState("settings")}>Play Again</button>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="game-container">
-      <p>
-        Round {Math.max(0, currentIndex - nBack + 1)} of {TOTAL_ROUNDS}
-      </p>
-      <div className="stimulus-box">
-        {currentIndex >= nBack ? (
-          <span className="stimulus">{sequence[currentIndex]}</span>
-        ) : (
-          <span>Get Ready...</span>
-        )}
+    <div>
+      <Header />
+      <div className="game-container">
+        <p>
+          Round {Math.max(0, currentIndex - nBack + 1)} of {TOTAL_ROUNDS}
+        </p>
+        <div className="stimulus-box">
+          {currentIndex >= nBack ? (
+            <span className="stimulus">{sequence[currentIndex]}</span>
+          ) : (
+            <span>Get Ready...</span>
+          )}
+        </div>
+        <button
+          className="match-button"
+          onClick={handleResponse}
+          disabled={responded || currentIndex < nBack}
+        >
+          Match
+        </button>
       </div>
-      <button
-        className="match-button"
-        onClick={handleResponse}
-        disabled={responded || currentIndex < nBack}
-      >
-        Match
-      </button>
+      <Footer />
     </div>
   );
 }

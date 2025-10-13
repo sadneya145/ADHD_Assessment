@@ -13,7 +13,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Google login (optional)
+  // ✅ Google login
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
@@ -49,7 +49,7 @@ export default function Login() {
         throw new Error(data.error || 'Login failed');
       }
 
-      // ✅ Save JWT token & user info
+      // Save JWT token & user info
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 

@@ -1,0 +1,572 @@
+.games-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: #f8fafc;
+}
+
+.games-main {
+    flex: 1;
+}
+
+.games-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
+.games-hero-content {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.games-hero-title {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 0 0 1rem 0;
+    line-height: 1.2;
+}
+
+.games-hero-subtitle {
+    font-size: 1.2rem;
+    margin: 0;
+    line-height: 1.6;
+    opacity: 0.95;
+}
+
+.games-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.games-grid-section {
+    padding: 4rem 0;
+}
+
+.games-intro {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto 3rem;
+}
+
+.games-intro h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 1rem 0;
+}
+
+.games-intro p {
+    font-size: 1.1rem;
+    color: #64748b;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2.5rem;
+    margin-top: 3rem;
+}
+
+.game-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.game-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+.game-card-header {
+    padding: 2rem;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.game-icon {
+    font-size: 4rem;
+    line-height: 1;
+}
+
+.game-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.game-difficulty,
+.game-duration {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.game-card-body {
+    padding: 2rem;
+}
+
+.game-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 1rem 0;
+}
+
+.game-description {
+    color: #475569;
+    line-height: 1.7;
+    margin: 0 0 1.5rem 0;
+    font-size: 1rem;
+}
+
+.game-details {
+    background: #f8fafc;
+    padding: 1.2rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+}
+
+.game-details-text {
+    color: #334155;
+    line-height: 1.6;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.game-measures h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #64748b;
+    margin: 0 0 0.8rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.measures-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.measure-tag {
+    background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%);
+    color: #5b21b6;
+    padding: 0.4rem 0.9rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.game-start-btn {
+    display: block;
+    width: 90%;
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.05rem;
+    transition: all 0.3s ease;
+}
+
+.game-start-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.why-games-section {
+    background: white;
+    padding: 5rem 0;
+}
+
+.section-header {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto 4rem;
+}
+
+.section-header h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 1rem 0;
+}
+
+.section-header p {
+    font-size: 1.1rem;
+    color: #64748b;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.why-games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2.5rem;
+}
+
+.why-game-card {
+    background: #f8fafc;
+    padding: 2.5rem;
+    border-radius: 16px;
+    border-left: 4px solid #667eea;
+    transition: all 0.3s ease;
+}
+
+.why-game-card:hover {
+    transform: translateX(4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.why-game-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    margin-bottom: 1.5rem;
+}
+
+.info-icon {
+    width: 28px;
+    height: 28px;
+}
+
+.why-game-card h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 1rem 0;
+}
+
+.why-game-content {
+    color: #475569;
+    line-height: 1.8;
+    margin: 0 0 1.5rem 0;
+}
+
+.research-note {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    color: #334155;
+    line-height: 1.6;
+}
+
+.research-note strong {
+    color: #667eea;
+}
+
+.scientific-basis-section {
+    background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+    padding: 5rem 0;
+}
+
+.scientific-cards {
+    display: grid;
+    gap: 2rem;
+}
+
+.scientific-card {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    position: relative;
+    padding-left: 5rem;
+}
+
+.card-number {
+    position: absolute;
+    left: 2rem;
+    top: 2.5rem;
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.scientific-card h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 1rem 0;
+}
+
+.scientific-card p {
+    color: #475569;
+    line-height: 1.8;
+    margin: 0 0 1.5rem 0;
+}
+
+.citation {
+    padding-top: 1rem;
+    border-top: 2px solid #e0e7ff;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.implementation-section {
+    background: white;
+    padding: 5rem 0;
+}
+
+.implementation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.implementation-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    padding: 2rem;
+    border-radius: 16px;
+    border: 2px solid #e0e7ff;
+    transition: all 0.3s ease;
+}
+
+.implementation-card:hover {
+    border-color: #667eea;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.12);
+}
+
+.implementation-number {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+
+.implementation-card h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 1rem 0;
+}
+
+.implementation-card p {
+    color: #475569;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.best-practices-section {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    padding: 5rem 0;
+    color: white;
+}
+
+.best-practices-content h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 3rem 0;
+}
+
+.practice-group {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2rem;
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(10px);
+}
+
+.practice-group h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1.5rem 0;
+    color: #fbbf24;
+}
+
+.practice-group ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.practice-group li {
+    padding: 0.8rem 0;
+    padding-left: 2rem;
+    position: relative;
+    line-height: 1.6;
+    color: #e2e8f0;
+}
+
+.practice-group li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #48bb78;
+    font-weight: 700;
+    font-size: 1.2rem;
+}
+
+.cta-section {
+    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+    padding: 5rem 2rem;
+    text-align: center;
+}
+
+.cta-content {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.cta-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 2rem;
+    color: white;
+}
+
+.cta-content h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 1rem 0;
+}
+
+.cta-content p {
+    font-size: 1.2rem;
+    color: white;
+    opacity: 0.95;
+    margin: 0 0 2.5rem 0;
+    line-height: 1.6;
+}
+
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.05rem;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.btn-primary {
+    background: white;
+    color: #4F46E5;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 255, 255, 0.3);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: white;
+    border: 2px solid white;
+}
+
+.btn-secondary:hover {
+    background: white;
+    color: #4F46E5;
+}
+
+@media (max-width: 1024px) {
+    .why-games-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .implementation-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .games-hero-title {
+        font-size: 2rem;
+    }
+
+    .games-hero-subtitle {
+        font-size: 1rem;
+    }
+
+    .games-container {
+        padding: 0 1rem;
+    }
+
+    .games-intro h2,
+    .section-header h2,
+    .best-practices-content h2,
+    .cta-content h2 {
+        font-size: 2rem;
+    }
+
+    .games-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .game-card-header {
+        padding: 1.5rem;
+    }
+
+    .game-icon {
+        font-size: 3rem;
+    }
+
+    .scientific-card {
+        padding-left: 2rem;
+    }
+
+    .card-number {
+        position: static;
+        margin-bottom: 1rem;
+    }
+
+    .why-games-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cta-buttons {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+}

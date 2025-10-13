@@ -1,12 +1,11 @@
 /* Background */
 .game-container-mouse {
-  min-height: 100vh;
-  /* display: flex; */
-  align-items: center;
+  display: flex;
   justify-content: center;
   background: linear-gradient(to bottom right, #4c1d95, #1e3a8a, #3730a3);
   padding: 2rem;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
 }
 
 .game-inner {
@@ -22,6 +21,8 @@
   padding: 3rem;
   text-align: center;
   color: white;
+  margin-top: 150px;
+  margin-bottom: 150px;
 }
 
 .game-title {
@@ -98,7 +99,7 @@
   position: absolute;
   border-radius: 12px;
   padding: 1rem;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
   cursor: grab;
   transition: transform 0.2s;
 }

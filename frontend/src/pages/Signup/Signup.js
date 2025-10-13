@@ -2,33 +2,37 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { auth, provider, signInWithPopup } from '../../firebase';
 import { Eye, EyeOff, Brain, AlertCircle } from 'lucide-react';
-import './Signup.css'; // Import CSS file
+import './Signup.css';
 
 export default function Signup() {
   const navigate = useNavigate();
+
+  // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // UI states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // ✅ Google Signup (unchanged)
+  // ================= Google Signup =================
   const handleGoogleSignup = async () => {
     try {
       setLoading(true);
       setError('');
       await signInWithPopup(auth, provider);
       navigate('/home');
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Email Signup (updated to connect backend)
+  // ================= Email Signup =================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -45,7 +49,6 @@ export default function Signup() {
 
     try {
       setLoading(true);
-
       const response = await fetch('http://localhost:5000/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,14 +57,9 @@ export default function Signup() {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Signup failed');
-      }
+      if (!response.ok) throw new Error(data.message || 'Signup failed');
 
-      // If token is returned, store it
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-      }
+      if (data.token) localStorage.setItem('token', data.token);
 
       navigate('/home');
     } catch (err) {
@@ -71,6 +69,7 @@ export default function Signup() {
     }
   };
 
+  // ================= UI =================
   return (
     <div className="signup-container">
       <div className="signup-card">
@@ -168,8 +167,7 @@ export default function Signup() {
         </form>
 
         <p className="signin-link">
-          Already have an account?{' '}
-          <Link to="/">Sign in</Link>
+          Already have an account? <Link to="/">Sign in</Link>
         </p>
       </div>
     </div>
