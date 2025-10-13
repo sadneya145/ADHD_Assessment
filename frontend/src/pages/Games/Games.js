@@ -15,7 +15,7 @@ const Games = () => {
             difficulty: "Medium",
             duration: "5-8 minutes",
             measures: ["Working Memory", "Attention Span", "Cognitive Load"],
-            link: "/Nback",
+            link: "/home/Nback",
             color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
             details: "This task requires children to monitor a sequence of stimuli and indicate when the current stimulus matches the one from N steps earlier. It's particularly effective at measuring executive function and attention control, both commonly impaired in ADHD."
         },
@@ -27,7 +27,7 @@ const Games = () => {
             difficulty: "Easy",
             duration: "4-6 minutes",
             measures: ["Impulse Control", "Response Inhibition", "Reaction Time"],
-            link: "/GoNoGo",
+            link: "/home/GoNoGo",
             color: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
             details: "This classic neuropsychological test measures the ability to inhibit prepotent responses. Children with ADHD typically show more commission errors (responding when they shouldn't), revealing difficulties with impulse control."
         },
@@ -39,7 +39,7 @@ const Games = () => {
             difficulty: "Hard",
             duration: "3-5 minutes",
             measures: ["Selective Attention", "Cognitive Flexibility", "Processing Speed"],
-            link: "/Stroop",
+            link: "/home/Stroop",
             color: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
             details: "The Stroop effect demonstrates the interference between automatic processes (reading) and controlled processes (naming colors). Children with ADHD often struggle more with this task, showing difficulties in managing conflicting information."
         }

@@ -13,7 +13,7 @@ app.use(express.json());
 
 // MongoDB Connection
 const MONGODB_URI = 'mongodb+srv://sadneya:root@cluster0.ncmdlh9.mongodb.net/adhd_assessment?retryWrites=true&w=majority&appName=Cluster0';
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'logmein123';
 
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,

@@ -90,7 +90,7 @@ export default function StroopTask() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/assessments", {
+      const response = await fetch("https://adhd-assessment-backend.onrender.com/api/assessments", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({

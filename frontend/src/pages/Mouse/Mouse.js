@@ -4,7 +4,7 @@ import './MouseAnalysis.css';
 import Header from '../Header/Header';
 import Footer from '../Footer/Footer';
 
-const BACKEND_URL = 'http://localhost:5000'; // Change to your backend URL
+const BACKEND_URL = 'https://adhd-assessment-backend.onrender.com'; // Change to your backend URL
 
 const shapeTypes = [
   { id: 'circle', color: '#FF6B6B', icon: Circle },

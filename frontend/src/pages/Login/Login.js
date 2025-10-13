@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { auth, provider, signInWithPopup } from '../../firebase';
 import './Login.css';
 
-const BACKEND_URL = 'http://localhost:5000/api/auth/login'; // Your backend login endpoint
+const BACKEND_URL = 'https://adhd-assessment-backend.onrender.com/api/auth/login'; // Your backend login endpoint
 
 export default function Login() {
   const navigate = useNavigate();

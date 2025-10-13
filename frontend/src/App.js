@@ -9,6 +9,8 @@ import GoNoGoTask from './pages/GoNoGo/GoNoGo';
 import StroopTask from './pages/Stroop/Stroop';
 import WebcamAttentiveness from './pages/WebCam/WebcamAttentiveness';
 import Mouse from './pages/Mouse/Mouse';
+import About from './pages/About/About';
+import Game from './pages/Games/Games';
 
 function App() {
   return (
@@ -23,6 +25,8 @@ function App() {
         <Route path="/home/Stroop" element={<StroopTask />} />
         <Route path="/home/WebCam" element={< WebcamAttentiveness/>} />
         <Route path="/home/mouse" element={< Mouse/>} />
+        <Route path="/home/about" element={<About/>} />
+        <Route path="/home/game" element={<Game/>} />
       </Routes>
     </Router>
   );

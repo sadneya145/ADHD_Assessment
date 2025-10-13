@@ -10,37 +10,37 @@ const Home = () => {
       title: "N-Back Task",
       description: "Evaluates working memory and attention span through pattern recognition challenges.",
       icon: "🧠",
-      link: "/Nback"
+      link: "/home/Nback"
     },
     {
       title: "Go/No-Go Task",
       description: "Measures impulse control and response inhibition in children.",
       icon: "🎯",
-      link: "/GoNoGo"
+      link: "/home/GoNoGo"
     },
     {
       title: "Stroop Test",
       description: "Assesses selective attention and cognitive flexibility through color-word matching.",
       icon: "🎨",
-      link: "/Stroop"
+      link: "/home/Stroop"
     },
     {
       title: "Video Attentiveness",
       description: "Monitors focus and engagement patterns through webcam-based behavioral analysis.",
       icon: "📹",
-      link: "/WebCam"
+      link: "/home/WebCam"
     },
     {
       title: "Mouse Tracking",
       description: "Analyzes movement patterns and response times for attention assessment.",
       icon: "🖱️",
-      link: "/mouse"
+      link: "/home/mouse"
     },
     {
       title: "Behavioral Form",
       description: "Comprehensive questionnaire capturing daily behavioral patterns and symptoms.",
       icon: "📋",
-      link: "/form"
+      link: "/home/form"
     }
   ];
 
@@ -91,8 +91,8 @@ const Home = () => {
               to support comprehensive ADHD evaluation in children
             </p>
             <div className="hero-actions">
-              <Link to="/form" className="btn btn-primary">Start Assessment</Link>
-              <Link to="/about" className="btn btn-secondary">Learn More</Link>
+              <Link to="/home/form" className="btn btn-primary">Start Assessment</Link>
+              <Link to="/home/about" className="btn btn-secondary">Learn More</Link>
             </div>
           </div>
         </section>
@@ -133,7 +133,7 @@ const Home = () => {
               Start with our behavioral questionnaire, then proceed through our
               interactive assessment tasks designed specifically for children
             </p>
-            <Link to="/form" className="btn btn-primary btn-large">
+            <Link to="/home/form" className="btn btn-primary btn-large">
               Begin Assessment
             </Link>
           </div>

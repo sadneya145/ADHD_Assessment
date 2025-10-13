@@ -127,7 +127,7 @@ export default function NBackTask() {
         return;
       }
 
-      const res = await fetch("http://localhost:5000/api/assessments", {
+      const res = await fetch("https://adhd-assessment-backend.onrender.com/api/assessments", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
