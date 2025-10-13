@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { auth, provider, signInWithPopup } from '../../firebase';
 import './Login.css';
 
+const BACKEND_URL = 'http://localhost:5000/api/auth/login'; // Your backend login endpoint
+
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -11,22 +13,53 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Google login (optional)
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
       setError('');
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const token = await result.user.getIdToken();
+      localStorage.setItem('firebaseToken', token);
       navigate('/home');
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = (e) => {
+  // ✅ Email/password login
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('Please use Google Sign-In for this demo');
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // ✅ Save JWT token & user info
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      navigate('/home');
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -69,6 +102,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
+              required
             />
           </div>
 
@@ -80,6 +114,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
+                required
               />
               <button
                 type="button"
@@ -91,8 +126,8 @@ export default function Login() {
             </div>
           </div>
 
-          <button type="submit" className="signin-btn">
-            Sign In
+          <button type="submit" className="signin-btn" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 

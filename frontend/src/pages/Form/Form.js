@@ -33,6 +33,8 @@ const RESPONSE_OPTIONS = [
 
 export default function BehavioralQuestionnaire({ onComplete }) {
   const [responses, setResponses] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
 
   const handleResponse = (questionId, value) => {
     setResponses(prev => ({ ...prev, [questionId]: value }));
@@ -72,8 +74,10 @@ export default function BehavioralQuestionnaire({ onComplete }) {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setMessage(null);
 
     const { inattentiveScore, hyperactiveScore } = calculateScores();
     const classification = getClassification(inattentiveScore, hyperactiveScore);
@@ -90,7 +94,29 @@ export default function BehavioralQuestionnaire({ onComplete }) {
       }))
     };
 
-    onComplete(questionnaireResults);
+    try {
+      // ✅ Save assessment to backend
+      const token = localStorage.getItem('token'); // make sure you stored it after login
+      const res = await fetch('http://localhost:5000/api/assessments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ questionnaire: questionnaireResults }),
+      });
+
+      if (!res.ok) throw new Error('Failed to save assessment');
+
+      const data = await res.json();
+      setMessage('✅ Assessment saved successfully');
+      onComplete(data.assessment);
+    } catch (error) {
+      console.error(error);
+      setMessage('❌ Failed to save assessment. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const allAnswered = QUESTIONS.every(q => responses[q.id]);
@@ -156,11 +182,15 @@ export default function BehavioralQuestionnaire({ onComplete }) {
             <p><strong>Note:</strong> This questionnaire is a screening tool only. Professional evaluation is required for accurate diagnosis.</p>
           </div>
 
-          <button type="submit" disabled={!allAnswered} className={`submit-btn ${!allAnswered ? 'disabled' : ''}`}>
-            {allAnswered 
-              ? 'Complete Assessment & View Results' 
-              : `Please answer all questions (${QUESTIONS.length - Object.keys(responses).length} remaining)`}
+          <button type="submit" disabled={!allAnswered || loading} className={`submit-btn ${!allAnswered ? 'disabled' : ''}`}>
+            {loading
+              ? 'Saving...'
+              : allAnswered
+                ? 'Complete Assessment & View Results'
+                : `Please answer all questions (${QUESTIONS.length - Object.keys(responses).length} remaining)`}
           </button>
+
+          {message && <p className="status-msg">{message}</p>}
         </form>
       </div>
     </div>

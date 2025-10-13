@@ -1,7 +1,7 @@
 /* Background */
 .game-container-mouse {
   min-height: 100vh;
-  display: flex;
+  /* display: flex; */
   align-items: center;
   justify-content: center;
   background: linear-gradient(to bottom right, #4c1d95, #1e3a8a, #3730a3);

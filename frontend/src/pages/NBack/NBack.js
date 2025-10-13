@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import "./Nback.css"; // import normal CSS
+import "./Nback.css";
 
 export default function NBackTask() {
   const STIMULI_SET = ["A", "B", "C", "D", "E", "F", "G", "H"];
@@ -20,9 +20,12 @@ export default function NBackTask() {
     correctRejections: 0,
   });
   const [responded, setResponded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [apiMessage, setApiMessage] = useState(null);
 
   const timerRef = useRef(null);
 
+  // ✅ Generate sequence
   const generateSequence = useCallback(() => {
     const newSequence = [];
     for (let i = 0; i < TOTAL_ROUNDS + nBack; i++) {
@@ -44,6 +47,7 @@ export default function NBackTask() {
     setSequence(newSequence);
   }, [nBack]);
 
+  // ✅ Stimulus progression
   const nextStimulus = useCallback(() => {
     if (currentIndex >= nBack - 1 && currentIndex < TOTAL_ROUNDS + nBack - 1) {
       const isTarget =
@@ -61,6 +65,7 @@ export default function NBackTask() {
     }
   }, [currentIndex, nBack, responded, sequence]);
 
+  // ✅ Stimulus timer
   useEffect(() => {
     if (gameState === "running") {
       timerRef.current = setTimeout(
@@ -73,6 +78,7 @@ export default function NBackTask() {
     };
   }, [gameState, currentIndex, nextStimulus]);
 
+  // ✅ Response handler
   const handleResponse = () => {
     if (responded) return;
     setResponded(true);
@@ -85,28 +91,83 @@ export default function NBackTask() {
     }
   };
 
+  // ✅ Correct rejection check
   useEffect(() => {
     const checkCorrectRejection = () => {
       if (gameState === "running" && currentIndex >= nBack) {
         const isTarget =
           sequence[currentIndex] === sequence[currentIndex - nBack];
         if (!isTarget && !responded) {
-          setScore((s) => ({ ...s, correctRejections: s.correctRejections + 1 }));
+          setScore((s) => ({
+            ...s,
+            correctRejections: s.correctRejections + 1,
+          }));
         }
       }
     };
 
     const timeoutId = setTimeout(checkCorrectRejection, STIMULUS_DURATION);
-
     return () => clearTimeout(timeoutId);
   }, [currentIndex, gameState, nBack, responded, sequence]);
 
+  // ✅ Start game
   const startGame = () => {
     generateSequence();
     setCurrentIndex(0);
     setScore({ hits: 0, misses: 0, falseAlarms: 0, correctRejections: 0 });
+    setApiMessage(null);
     setGameState("running");
   };
+
+  // ✅ Send result to backend
+  const submitResultsToBackend = async () => {
+    const totalTargets = score.hits + score.misses;
+    const accuracy =
+      totalTargets > 0 ? (score.hits / totalTargets) * 100 : 0;
+
+    const payload = {
+      nBack: {
+        nLevel: nBack,
+        hits: score.hits,
+        misses: score.misses,
+        falseAlarms: score.falseAlarms,
+        correctRejections: score.correctRejections,
+        accuracy: accuracy.toFixed(1),
+      },
+    };
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setApiMessage("❌ You must be logged in to save results.");
+        setLoading(false);
+        return;
+      }
+
+      const res = await fetch("http://localhost:5000/api/assessments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setApiMessage("✅ Results saved successfully!");
+      } else {
+        setApiMessage(`❌ Error: ${data.error || "Failed to save"}`);
+      }
+    } catch (error) {
+      setApiMessage(`❌ Network error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ================= UI =================
 
   if (gameState === "settings") {
     return (
@@ -146,6 +207,10 @@ export default function NBackTask() {
           </div>
         </div>
         <div className="accuracy">Accuracy: {accuracy}%</div>
+        <button disabled={loading} onClick={submitResultsToBackend}>
+          {loading ? "Saving..." : "Save Results"}
+        </button>
+        {apiMessage && <p>{apiMessage}</p>}
         <button onClick={() => setGameState("settings")}>Play Again</button>
       </div>
     );

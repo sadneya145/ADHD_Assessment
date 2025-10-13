@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import './GoNoGo.css'; // Importing the CSS
+import './GoNoGo.css';
 
 const TOTAL_ROUNDS = 20;
 const GO_PROBABILITY = 0.7;
@@ -11,12 +11,21 @@ export default function GoNoGoTask() {
   const [gameState, setGameState] = useState('idle');
   const [signal, setSignal] = useState('Wait');
   const [round, setRound] = useState(0);
-  const [score, setScore] = useState({ hits: 0, misses: 0, falseAlarms: 0, correctRejections: 0 });
+  const [score, setScore] = useState({
+    hits: 0,
+    misses: 0,
+    falseAlarms: 0,
+    correctRejections: 0
+  });
   const [reactionTimes, setReactionTimes] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   const signalStartTime = useRef(0);
   const userResponded = useRef(false);
   const gameLoopTimeout = useRef(null);
+
+  // ------------------ GAME LOGIC ------------------
 
   const endRound = useCallback(() => {
     if (signal === 'Go' && !userResponded.current) {
@@ -75,9 +84,59 @@ export default function GoNoGoTask() {
     setReactionTimes([]);
     setSignal('Wait');
     userResponded.current = false;
+    setSaveMessage('');
   };
 
-  const avgReactionTime = reactionTimes.length > 0 ? (reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length).toFixed(0) : 0;
+  const avgReactionTime =
+    reactionTimes.length > 0
+      ? (reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length).toFixed(0)
+      : 0;
+
+  // ------------------ BACKEND INTEGRATION ------------------
+
+  const saveResultsToBackend = async () => {
+    setIsSaving(true);
+    setSaveMessage('');
+
+    try {
+      const token = localStorage.getItem('token'); // must be set after login
+
+      const payload = {
+        goNoGo: {
+          hits: score.hits,
+          misses: score.misses,
+          falseAlarms: score.falseAlarms,
+          correctRejections: score.correctRejections,
+          avgReactionTime: Number(avgReactionTime),
+          reactionTimes
+        }
+      };
+
+      const response = await fetch('http://localhost:5000/api/assessments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save results');
+      }
+
+      setSaveMessage('✅ Results saved successfully!');
+    } catch (err) {
+      console.error('Error saving results:', err);
+      setSaveMessage('❌ Failed to save results');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ------------------ UI RENDER ------------------
 
   const renderSignal = () => {
     switch (signal) {
@@ -118,6 +177,12 @@ export default function GoNoGoTask() {
             <div className="result-item"><span>Correct Rejections:</span> {score.correctRejections}</div>
             <div className="result-item"><span>Avg. Reaction Time:</span> {avgReactionTime} ms</div>
           </div>
+
+          <button onClick={saveResultsToBackend} className="btn save" disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Results'}
+          </button>
+          {saveMessage && <p className="save-message">{saveMessage}</p>}
+
           <button onClick={startGame} className="btn play-again">Play Again</button>
         </div>
       </div>

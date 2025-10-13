@@ -14,6 +14,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // ✅ Google Signup (unchanged)
   const handleGoogleSignup = async () => {
     try {
       setLoading(true);
@@ -27,9 +28,47 @@ export default function Signup() {
     }
   };
 
-  const handleSubmit = (e) => {
+  // ✅ Email Signup (updated to connect backend)
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('Please use Google Sign-Up for this demo');
+    setError('');
+
+    if (!email || !password || !confirmPassword) {
+      setError('All fields are required');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed');
+      }
+
+      // If token is returned, store it
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+
+      navigate('/home');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,6 +93,7 @@ export default function Signup() {
           </div>
         )}
 
+        {/* Google Signup Button */}
         <button
           onClick={handleGoogleSignup}
           disabled={loading}
@@ -72,6 +112,7 @@ export default function Signup() {
           <span>Or sign up with email</span>
         </div>
 
+        {/* Email Signup Form */}
         <form onSubmit={handleSubmit} className="signup-form">
           <div className="form-group">
             <label>Email Address</label>
@@ -87,7 +128,7 @@ export default function Signup() {
             <label>Password</label>
             <div className="password-box">
               <input
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Create a password"
@@ -106,7 +147,7 @@ export default function Signup() {
             <label>Confirm Password</label>
             <div className="password-box">
               <input
-                type={showConfirmPassword ? "text" : "password"}
+                type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm your password"
@@ -121,8 +162,8 @@ export default function Signup() {
             </div>
           </div>
 
-          <button type="submit" className="submit-btn">
-            Create Account
+          <button type="submit" className="submit-btn" disabled={loading}>
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
