@@ -11,6 +11,7 @@ import WebcamAttentiveness from './pages/WebCam/WebcamAttentiveness';
 import Mouse from './pages/Mouse/Mouse';
 import About from './pages/About/About';
 import Game from './pages/Games/Games';
+import ResultsPage from './pages/Result/Result';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
         <Route path="/home/mouse" element={< Mouse/>} />
         <Route path="/home/about" element={<About/>} />
         <Route path="/home/game" element={<Game/>} />
+        <Route path="/results" element={<ResultsPage />} />
       </Routes>
     </Router>
   );

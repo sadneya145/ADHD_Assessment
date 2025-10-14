@@ -1,0 +1,76 @@
+.results-container {
+  max-width: 800px;
+  margin: auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.summary-card {
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 10px;
+  margin-bottom: 2rem;
+}
+
+.risk {
+  font-weight: bold;
+  padding: 0.3rem 0.6rem;
+  border-radius: 5px;
+}
+
+.risk.low {
+  background: #d4edda;
+  color: #155724;
+}
+
+.risk.moderate {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.risk.high {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.domain-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+}
+
+.domain-card {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  text-align: left;
+}
+
+.domain-card h4 {
+  margin-top: 0;
+}
+
+.note {
+  margin-top: 2rem;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.download-btn {
+  margin-top: 1rem;
+  padding: 0.8rem 1.2rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.download-btn:hover {
+  background-color: #0056b3;
+}
+
+.error {
+  color: red;
+}
