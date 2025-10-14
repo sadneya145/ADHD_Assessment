@@ -319,6 +319,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
     if (stroop) pythonInput.stroop = stroop;
 
     const modelResult = await runPythonAssessment(pythonInput);
+    console.log("Python assessment result:", modelResult);
 
     if (!modelResult || modelResult.error) {
       console.error('Python model error:', modelResult?.error);
