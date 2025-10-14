@@ -560,6 +560,7 @@ class ADHDModelTrainer:
         print(f"🔬 Domain-specific analysis completed")
         
         return self.models, self.results
+    
 
 def main():
     """Main execution function"""
@@ -587,6 +588,8 @@ def main():
     # Run training
     trainer = ADHDModelTrainer(args.features_csv)
     models, results = trainer.run_complete_training()
+    save_model_artifacts(trainer, 'Domain Ensemble')
+    
     
     print(f"\n📁 Generated files:")
     print(f"  - feature_importance_*.png (feature importance plots)")
@@ -596,3 +599,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+    

@@ -276,36 +276,6 @@ app.post('/api/auth/google', async (req, res) => {
 
 // ==================== ASSESSMENT ROUTES ====================
 
-// // Create/Update Assessment
-// app.post('/api/assessments', authenticateToken, async (req, res) => {
-//   try {
-//     const { questionnaire, goNoGo, nBack, stroop, mouseTracking } = req.body;
-
-//     const assessment = new Assessment({
-//       userId: req.user.userId,
-//       questionnaire,
-//       goNoGo,
-//       nBack,
-//       stroop,
-//       mouseTracking,
-//       overallResult: calculateOverallResult({ questionnaire, goNoGo, nBack, stroop, mouseTracking })
-//     });
-
-//     await assessment.save();
-
-//     // Add to user's assessments
-//     await User.findByIdAndUpdate(req.user.userId, {
-//       $push: { assessments: assessment._id }
-//     });
-
-//     res.status(201).json({
-//       message: 'Assessment saved successfully',
-//       assessment
-//     });
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// });
 
 const runPythonAssessment = require('./runGames');
 app.post('/api/assessments', authenticateToken, async (req, res) => {
@@ -319,6 +289,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
     if (stroop) pythonInput.stroop = stroop;
 
     const modelResult = await runPythonAssessment(pythonInput);
+    console.log("Python assessment result:", modelResult);
 
     if (!modelResult || modelResult.error) {
       console.error('Python model error:', modelResult?.error);
@@ -386,6 +357,7 @@ app.get('/api/analysis/latest', authenticateToken, async (req, res) => {
 
     // Extract domain scores safely
     const modelResult = result.modelResult || {};
+    
     const domain_scores = {
       attention: Number(modelResult.domain_scores?.attention ?? 0),
       impulsivity: Number(modelResult.domain_scores?.impulsivity ?? 0),
