@@ -5,6 +5,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
+const analyzeMouseWithPython = require('./analyzeMouseWithPython');
+
+
 const app = express();
 
 // Middleware
@@ -105,23 +108,20 @@ const assessmentSchema = new mongoose.Schema({
 const Assessment = mongoose.model('Assessment', assessmentSchema);
 
 // Mouse Data Schema (for analysis)
-const mouseDataSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  sessionId: String,
-  timestamp: { type: Date, default: Date.now },
-  mouseData: [{
-    time: Number,
-    x: Number,
-    y: Number
-  }],
+
+const MouseDataSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  sessionId: { type: String, required: true },
+  mouseData: { type: Array, required: true },
   analysis: {
     adhd_type: String,
     confidence: Number,
-    features: mongoose.Schema.Types.Mixed
-  }
+    features: Object
+  },
+  createdAt: { type: Date, default: Date.now }
 });
 
-const MouseData = mongoose.model('MouseData', mouseDataSchema);
+const MouseData = mongoose.model('MouseData', MouseDataSchema);
 
 // ==================== MIDDLEWARE ====================
 
@@ -316,25 +316,49 @@ app.get('/api/assessments/:id', authenticateToken, async (req, res) => {
 
 // ==================== MOUSE TRACKING ANALYSIS ====================
 
+// app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
+//   try {
+//     const mouseData = req.body;
+
+//     // Save raw mouse data
+//     const mouseRecord = new MouseData({
+//       userId: req.user.userId,
+//       mouseData,
+//       sessionId: Date.now().toString()
+//     });
+
+//     // Perform analysis
+//     const analysis = analyzeMouseMovement(mouseData);
+//     mouseRecord.analysis = analysis;
+
+//     await mouseRecord.save();
+
+//     res.json(analysis);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
+// ✅ POST Mouse Tracking Analysis
 app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
   try {
     const mouseData = req.body;
+    const analysis = await analyzeMouseWithPython(mouseData);
 
-    // Save raw mouse data
     const mouseRecord = new MouseData({
       userId: req.user.userId,
       mouseData,
-      sessionId: Date.now().toString()
+      sessionId: Date.now().toString(),
+      analysis: {
+        adhd_type: analysis.adhd_type,
+        confidence: analysis.confidence,
+        features: analysis.classifications
+      }
     });
 
-    // Perform analysis
-    const analysis = analyzeMouseMovement(mouseData);
-    mouseRecord.analysis = analysis;
-
     await mouseRecord.save();
-
     res.json(analysis);
   } catch (error) {
+    console.error('❌ Mouse analysis error:', error);
     res.status(500).json({ error: error.message });
   }
 });

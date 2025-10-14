@@ -4,8 +4,8 @@ import './MouseAnalysis.css';
 import Header from '../Header/Header';
 import Footer from '../Footer/Footer';
 
-const BACKEND_URL = 'https://adhd-assessment-backend.onrender.com'; // Change to your backend URL
-
+const BACKEND_URL = 'https://adhd-assessment-backend.onrender.com'; // or your localhost during dev
+// const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const shapeTypes = [
   { id: 'circle', color: '#FF6B6B', icon: Circle },
   { id: 'square', color: '#4ECDC4', icon: Square },
@@ -27,7 +27,7 @@ const ShapeGame = () => {
   const startTimeRef = useRef(null);
   const gameAreaRef = useRef(null);
 
-  // Scroll to top on mount
+  // Scroll behavior fix
   useEffect(() => {
     window.scrollTo(0, 0);
     if ('scrollRestoration' in window.history) {
@@ -51,18 +51,15 @@ const ShapeGame = () => {
     setCurrentShapes(shapes);
   }, []);
 
-  // Track mouse
-  const trackMouse = useCallback(
-    (e) => {
-      if (!gameStarted || gameEnded) return;
-      const currentTime = (Date.now() - startTimeRef.current) / 1000;
-      const rect = gameAreaRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      setMouseData((prev) => [...prev, { time: currentTime, x, y }]);
-    },
-    [gameStarted, gameEnded]
-  );
+  // Mouse tracking
+  const trackMouse = useCallback((e) => {
+    if (!gameStarted || gameEnded) return;
+    const currentTime = (Date.now() - startTimeRef.current) / 1000;
+    const rect = gameAreaRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setMouseData((prev) => [...prev, { time: currentTime, x, y }]);
+  }, [gameStarted, gameEnded]);
 
   // Start game
   const startGame = () => {
@@ -76,13 +73,14 @@ const ShapeGame = () => {
     generateShapes();
   };
 
-  // Timer
+  // Timer countdown
   useEffect(() => {
     if (!gameStarted || gameEnded) return;
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           setGameEnded(true);
+          clearInterval(timer);
           analyzeData();
           return 0;
         }
@@ -92,12 +90,13 @@ const ShapeGame = () => {
     return () => clearInterval(timer);
   }, [gameStarted, gameEnded]);
 
-  // Drag & Drop
+  // Drag start
   const handleDragStart = (shape, e) => {
     setDraggedShape(shape);
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  // Drag drop
   const handleDrop = (targetShape, e) => {
     e.preventDefault();
     if (!draggedShape || draggedShape.id !== targetShape.id) return;
@@ -110,6 +109,7 @@ const ShapeGame = () => {
     setScore((prev) => prev + 10);
     setDraggedShape(null);
 
+    // Regenerate shapes when all matched
     if (currentShapes.filter((s) => !s.matched).length === 1) {
       setTimeout(generateShapes, 500);
     }
@@ -117,7 +117,7 @@ const ShapeGame = () => {
 
   const handleDragOver = (e) => e.preventDefault();
 
-  // Download data
+  // Download raw mouse movement
   const downloadData = () => {
     const dataStr = JSON.stringify(mouseData, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -128,14 +128,14 @@ const ShapeGame = () => {
     a.click();
   };
 
-  // Backend analysis
+  // Send data to backend for ADHD analysis
   const analyzeData = async () => {
-    const token = localStorage.getItem('token'); // JWT token
+    const token = localStorage.getItem('token');
     if (!token) {
       setAnalysisResult({
         adhd_type: 'N/A',
         confidence: 0,
-        classifications: { message: 'No auth token' },
+        classifications: { message: 'No auth token found' },
       });
       return;
     }
@@ -156,11 +156,11 @@ const ShapeGame = () => {
       setAnalysisResult(result);
       localStorage.setItem('lastAnalysis', JSON.stringify(result));
     } catch (err) {
-      console.warn('Backend analysis failed:', err.message);
+      console.error('❌ Analysis failed:', err.message);
       setAnalysisResult({
         adhd_type: 'N/A',
         confidence: 0,
-        classifications: { message: 'Backend not connected' },
+        classifications: { message: 'Backend not reachable' },
       });
     } finally {
       setLoadingAnalysis(false);
@@ -246,10 +246,7 @@ const ShapeGame = () => {
                     Mouse movements recorded: {mouseData.length}
                   </p>
                   <div className="end-buttons">
-                    <button
-                      onClick={startGame}
-                      className="play-again-button"
-                    >
+                    <button onClick={startGame} className="play-again-button">
                       Play Again
                     </button>
                     <button onClick={downloadData} className="download-button">
@@ -262,9 +259,7 @@ const ShapeGame = () => {
                   {analysisResult && !loadingAnalysis && (
                     <div className="analysis-box">
                       <h3>🧠 ADHD Analysis Result</h3>
-                      <p>
-                        <strong>Type:</strong> {analysisResult.adhd_type}
-                      </p>
+                      <p><strong>Type:</strong> {analysisResult.adhd_type}</p>
                       <p>
                         <strong>Confidence:</strong>{' '}
                         {analysisResult.confidence.toFixed(1)}%
