@@ -64,7 +64,7 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
   const sendFrameForPrediction = async (frame, taskData) => {
     try {
       const payload = { frame, taskData };
-      const res = await fetch('https://adhd-assessment-backend.onrender.com/predict', {
+      const res = await fetch('https://adhd-assessment-video-analysis.onrender.com/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
