@@ -1,118 +1,401 @@
-/* General Screen */
-.screen {
+/* General Container */
+.gonogo-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   justify-content: center;
-  padding: 40px;
-  margin-top: 150px;
-  margin-bottom: 150px;
+  align-items: center;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-/* Card Container */
-.card {
-  max-width: 600px;
+.gonogo-screen {
   width: 100%;
+  max-width: 600px;
+}
+
+.gonogo-card {
   background: white;
-  border-radius: 15px;
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-  padding: 25px;
+  border-radius: 30px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 40px;
   text-align: center;
 }
 
-.card h2 {
-  font-size: 27px;
-  margin-bottom: 15px;
+/* Title Section */
+.gonogo-title-section {
+  margin-bottom: 30px;
 }
 
-.card p {
-  color: #555;
+.gonogo-game-icon {
+  font-size: 60px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.gonogo-game-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1f2937;
+  margin: 10px 0;
+}
+
+.gonogo-game-subtitle {
+  font-size: 18px;
+  color: #6b7280;
+  margin: 10px 0 0;
+}
+
+/* Instructions */
+.gonogo-instructions {
+  text-align: left;
+  margin-bottom: 30px;
+}
+
+.gonogo-instructions-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 25px;
+  text-align: center;
+}
+
+.gonogo-instruction-step {
+  display: flex;
+  align-items: flex-start;
   margin-bottom: 20px;
+  gap: 15px;
 }
 
-/* Signal Circles */
-.signal {
-  width: 120px;
-  height: 120px;
-  margin: 20px auto;
+.gonogo-step-number {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  font-size: 50px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.gonogo-step-content {
+  flex: 1;
+}
+
+.gonogo-step-text {
+  font-size: 18px;
+  color: #374151;
+  margin: 8px 0 0 0;
+  line-height: 1.6;
+}
+
+/* Example Cards */
+.gonogo-example-row {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.gonogo-example-card {
+  flex: 1;
+  background: #f9fafb;
+  border-radius: 15px;
+  padding: 20px;
+  text-align: center;
+}
+
+.gonogo-example-signal {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin: 0 auto 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.gonogo-green-example {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.gonogo-red-example {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.gonogo-example-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 10px 0 5px;
+}
+
+.gonogo-example-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Buttons */
+.gonogo-btn {
+  padding: 18px 30px;
+  border: none;
+  border-radius: 15px;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.gonogo-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.gonogo-btn:active {
+  transform: translateY(0);
+}
+
+.gonogo-start-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.gonogo-react-btn {
+  width: 100%;
+  max-width: 300px;
+  height: 70px;
+  font-size: 24px;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  margin: 0 auto;
+  display: block;
+}
+
+.gonogo-react-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gonogo-react-btn:disabled:hover {
+  transform: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.gonogo-play-again-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* Progress Section */
+.gonogo-progress-section {
+  margin-bottom: 30px;
+}
+
+.gonogo-round-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: #374151;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.gonogo-progress-bar {
+  width: 100%;
+  height: 12px;
+  background: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.gonogo-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  transition: width 0.3s ease;
+}
+
+/* Signal Container */
+.gonogo-signal-container {
+  position: relative;
+  margin: 40px 0;
+  min-height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.signal.go {
-  background: #22c55e;
-  color: white;
-}
-
-.signal.no-go {
-  background: #ef4444;
-  color: white;
-}
-
-.signal.wait {
-  background: #d1d5db;
-  color: #374151;
-}
-
-/* Buttons */
-.btn {
-  padding: 12px 20px;
-  border: none;
-  border-radius: 10px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 10px;
-  transition: 0.3s;
-}
-
-.btn.start {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn.start:hover {
-  background: #2563eb;
-}
-
-.btn.react {
-  width: 150px;
-  height: 60px;
-  font-size: 20px;
-  background: #22c55e;
-  color: white;
-}
-
-.btn.react:hover {
-  background: #16a34a;
-}
-
-.btn.play-again {
-  width: 100%;
-  background: #3b82f6;
-  color: white;
-}
-
-.btn.play-again:hover {
-  background: #2563eb;
-}
-
-/* Results */
-.results {
-  margin: 20px 0;
-  text-align: left;
-}
-
-.result-item {
-  background: #f3f4f6;
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 8px;
+.gonogo-signal {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
+  animation: gonogo-pulse 0.5s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
-.result-item span {
-  font-weight: bold;
+.gonogo-go-signal {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.gonogo-nogo-signal {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.gonogo-wait-signal {
+  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+}
+
+.gonogo-signal-emoji {
+  font-size: 90px;
+}
+
+/* Results Page */
+.gonogo-celebration-header {
+  margin-bottom: 30px;
+}
+
+.gonogo-celebration-emoji {
+  font-size: 80px;
+  display: block;
+  margin-bottom: 15px;
+}
+
+.gonogo-celebration-title {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.gonogo-star-rating {
+  margin-bottom: 30px;
+}
+
+.gonogo-star {
+  font-size: 40px;
+  display: inline-block;
+  margin: 0 5px;
+}
+
+.gonogo-star-filled {
+  opacity: 1;
+}
+
+.gonogo-star-empty {
+  opacity: 0.3;
+}
+
+.gonogo-results-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.gonogo-result-card {
+  border-radius: 15px;
+  padding: 20px;
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.gonogo-green-card {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.gonogo-blue-card {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.gonogo-orange-card {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.gonogo-red-card {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.gonogo-result-emoji {
+  font-size: 30px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.gonogo-result-number {
+  font-size: 36px;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.gonogo-result-label {
+  font-size: 14px;
+  font-weight: 600;
+  display: block;
+  opacity: 0.9;
+}
+
+.gonogo-speed-badge {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  border-radius: 15px;
+  padding: 15px;
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.gonogo-speed-icon {
+  font-size: 30px;
+}
+
+.gonogo-speed-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+}
+
+/* Animations */
+@keyframes gonogo-pulse {
+  0% { 
+    transform: scale(0.8); 
+    opacity: 0; 
+  }
+  100% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+  .gonogo-card {
+    padding: 25px;
+  }
+
+  .gonogo-game-title {
+    font-size: 26px;
+  }
+
+  .gonogo-signal {
+    width: 140px;
+    height: 140px;
+  }
+
+  .gonogo-signal-emoji {
+    font-size: 70px;
+  }
+
+  .gonogo-example-row {
+    flex-direction: column;
+  }
 }

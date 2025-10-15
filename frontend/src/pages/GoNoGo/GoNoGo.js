@@ -1,10 +1,5 @@
-'use client';
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import './GoNoGo.css';
-import Header from '../Header/Header';
-import Footer from '../Footer/Footer';
-import { useNavigate } from 'react-router-dom';
 
 const TOTAL_ROUNDS = 20;
 const GO_PROBABILITY = 0.7;
@@ -18,31 +13,39 @@ export default function GoNoGoTask() {
   const [round, setRound] = useState(0);
   const [score, setScore] = useState({ hits: 0, misses: 0, falseAlarms: 0, correctRejections: 0 });
   const [reactionTimes, setReactionTimes] = useState([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    return () => {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'auto';
+      }
+    };
+  }, []);
 
   const signalStartTime = useRef(0);
   const userResponded = useRef(false);
   const gameLoopTimeout = useRef(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
-    return () => {
-      if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'auto';
-    };
-  }, []);
 
   const endRound = useCallback(() => {
-    if (signal === 'Go' && !userResponded.current) setScore(s => ({ ...s, misses: s.misses + 1 }));
-    if (signal === 'No-Go' && !userResponded.current) setScore(s => ({ ...s, correctRejections: s.correctRejections + 1 }));
+    if (signal === 'Go' && !userResponded.current) {
+      setScore(s => ({ ...s, misses: s.misses + 1 }));
+    }
+    if (signal === 'No-Go' && !userResponded.current) {
+      setScore(s => ({ ...s, correctRejections: s.correctRejections + 1 }));
+    }
 
     setSignal('Wait');
     userResponded.current = false;
 
-    if (round + 1 >= TOTAL_ROUNDS) setGameState('finished');
-    else setRound(r => r + 1);
+    if (round + 1 >= TOTAL_ROUNDS) {
+      setGameState('finished');
+    } else {
+      setRound(r => r + 1);
+    }
   }, [round, signal]);
 
   useEffect(() => {
@@ -84,88 +87,194 @@ export default function GoNoGoTask() {
     setReactionTimes([]);
     setSignal('Wait');
     userResponded.current = false;
-    setSaveMessage('');
   };
 
-  const avgReactionTime = reactionTimes.length > 0
-    ? Math.round(reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length)
+  const avgReactionTime = reactionTimes.length > 0 
+    ? (reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length).toFixed(0) 
     : 0;
 
-  const saveResultsToBackend = async (testData) => {
-    setIsSaving(true);
-    setSaveMessage('');
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('No auth token found');
-
-      const res = await fetch('https://adhd-assessment-backend.onrender.com/api/assessments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(testData),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setSaveMessage('✅ Results saved successfully!');
-        setTimeout(() => navigate('/results'), 1000);
-      } else setSaveMessage(`❌ Error: ${data.error || 'Failed to save'}`);
-    } catch (error) {
-      setSaveMessage(`❌ Network error: ${error.message}`);
-    } finally {
-      setIsSaving(false);
-    }
+  const getPerformanceMessage = () => {
+    const totalCorrect = score.hits + score.correctRejections;
+    const percentage = (totalCorrect / TOTAL_ROUNDS) * 100;
+    
+    if (percentage >= 90) return { emoji: '🌟', msg: 'Amazing! You\'re a superstar!', color: '#fbbf24' };
+    if (percentage >= 75) return { emoji: '🎉', msg: 'Great job! You did awesome!', color: '#60a5fa' };
+    if (percentage >= 60) return { emoji: '👍', msg: 'Good work! Keep practicing!', color: '#34d399' };
+    return { emoji: '💪', msg: 'Nice try! You\'re getting better!', color: '#a78bfa' };
   };
 
-  useEffect(() => {
-    if (gameState === 'finished') {
-      const testData = {
-        goNoGo: { ...score, avgReactionTime }
-      };
-      saveResultsToBackend(testData);
-    }
-  }, [gameState]);
+  // Idle/Instructions Screen
+  if (gameState === 'idle') {
+    return (
+      <div className="gonogo-container">
+        <div className="gonogo-screen">
+          <div className="gonogo-card">
+            <div className="gonogo-title-section">
+              <span className="gonogo-game-icon">🚦</span>
+              <h2 className="gonogo-game-title">Green Light, Red Light!</h2>
+              <p className="gonogo-game-subtitle">A fun reaction game to test your focus!</p>
+            </div>
 
-  const renderSignal = () => {
-    if (signal === 'Go') return <div className="signal go">▶</div>;
-    if (signal === 'No-Go') return <div className="signal no-go">✖</div>;
-    return <div className="signal wait">⏸</div>;
-  };
+            <div className="gonogo-instructions">
+              <h3 className="gonogo-instructions-title">How to Play 🎯</h3>
+              
+              <div className="gonogo-instruction-step">
+                <div className="gonogo-step-number">1</div>
+                <div className="gonogo-step-content">
+                  <p className="gonogo-step-text">Watch the circle carefully!</p>
+                </div>
+              </div>
 
-  return (
-    <div>
-      <Header />
-      <div className="screen">
-        {gameState === 'idle' && (
-          <div className="card">
-            <h2>Go/No-Go Task Instructions</h2>
-            <p>Click "React" for green signals. Do nothing for red signals.</p>
-            <button onClick={startGame} className="btn start">Start Game</button>
-          </div>
-        )}
-        {gameState === 'running' && (
-          <div className="card">
-            <p>Round {round + 1} of {TOTAL_ROUNDS}</p>
-            {renderSignal()}
-            <button onClick={handleResponse} className="btn react">React</button>
-          </div>
-        )}
-        {gameState === 'finished' && (
-          <div className="card">
-            <h2>Results</h2>
-            <p>Hits: {score.hits}</p>
-            <p>Misses: {score.misses}</p>
-            <p>False Alarms: {score.falseAlarms}</p>
-            <p>Correct Rejections: {score.correctRejections}</p>
-            <p>Avg. Reaction Time: {avgReactionTime} ms</p>
-            <button disabled={isSaving} onClick={() => saveResultsToBackend({ goNoGo: { ...score, avgReactionTime } })}>
-              {isSaving ? 'Saving...' : 'Save Results'}
+              <div className="gonogo-example-row">
+                <div className="gonogo-example-card">
+                  <div className="gonogo-example-signal gonogo-green-example">
+                    😊
+                  </div>
+                  <p className="gonogo-example-label">GREEN = GO!</p>
+                  <p className="gonogo-example-desc">Press the button fast!</p>
+                </div>
+                
+                <div className="gonogo-example-card">
+                  <div className="gonogo-example-signal gonogo-red-example">
+                    ✋
+                  </div>
+                  <p className="gonogo-example-label">RED = STOP!</p>
+                  <p className="gonogo-example-desc">Don't press anything!</p>
+                </div>
+              </div>
+
+              <div className="gonogo-instruction-step">
+                <div className="gonogo-step-number">2</div>
+                <div className="gonogo-step-content">
+                  <p className="gonogo-step-text">You'll play 20 rounds</p>
+                </div>
+              </div>
+
+              <div className="gonogo-instruction-step">
+                <div className="gonogo-step-number">3</div>
+                <div className="gonogo-step-content">
+                  <p className="gonogo-step-text">Try to be quick and accurate!</p>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={startGame} className="gonogo-btn gonogo-start-btn">
+              🎮 Start Game
             </button>
-            {saveMessage && <p>{saveMessage}</p>}
-            <button onClick={startGame}>Play Again</button>
           </div>
-        )}
+        </div>
       </div>
-      <Footer />
+    );
+  }
+
+  // Results Screen
+  if (gameState === 'finished') {
+    const performance = getPerformanceMessage();
+    const stars = Math.ceil((score.hits + score.correctRejections) / TOTAL_ROUNDS * 5);
+    
+    return (
+      <div className="gonogo-container">
+        <div className="gonogo-screen">
+          <div className="gonogo-card">
+            <div className="gonogo-celebration-header">
+              <span className="gonogo-celebration-emoji">{performance.emoji}</span>
+              <h2 className="gonogo-celebration-title" style={{color: performance.color}}>
+                {performance.msg}
+              </h2>
+            </div>
+
+            <div className="gonogo-star-rating">
+              {[...Array(5)].map((_, i) => (
+                <span key={i} className={`gonogo-star ${i < stars ? 'gonogo-star-filled' : 'gonogo-star-empty'}`}>
+                  ⭐
+                </span>
+              ))}
+            </div>
+
+            <div className="gonogo-results-grid">
+              <div className="gonogo-result-card gonogo-green-card">
+                <span className="gonogo-result-emoji">✅</span>
+                <span className="gonogo-result-number">{score.hits}</span>
+                <span className="gonogo-result-label">Quick Catches!</span>
+              </div>
+
+              <div className="gonogo-result-card gonogo-blue-card">
+                <span className="gonogo-result-emoji">🛑</span>
+                <span className="gonogo-result-number">{score.correctRejections}</span>
+                <span className="gonogo-result-label">Good Stops!</span>
+              </div>
+
+              <div className="gonogo-result-card gonogo-orange-card">
+                <span className="gonogo-result-emoji">😴</span>
+                <span className="gonogo-result-number">{score.misses}</span>
+                <span className="gonogo-result-label">Too Slow</span>
+              </div>
+
+              <div className="gonogo-result-card gonogo-red-card">
+                <span className="gonogo-result-emoji">⚠️</span>
+                <span className="gonogo-result-number">{score.falseAlarms}</span>
+                <span className="gonogo-result-label">Wrong Press</span>
+              </div>
+            </div>
+
+            {avgReactionTime > 0 && (
+              <div className="gonogo-speed-badge">
+                <span className="gonogo-speed-icon">⚡</span>
+                <span className="gonogo-speed-text">Your Speed: {avgReactionTime}ms</span>
+              </div>
+            )}
+
+            <button onClick={startGame} className="gonogo-btn gonogo-play-again-btn">
+              🔄 Play Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Game Screen
+  return (
+    <div className="gonogo-container">
+      <div className="gonogo-screen">
+        <div className="gonogo-card">
+          <div className="gonogo-progress-section">
+            <span className="gonogo-round-text">Round {round + 1} of {TOTAL_ROUNDS}</span>
+            <div className="gonogo-progress-bar">
+              <div 
+                className="gonogo-progress-fill" 
+                style={{width: `${((round + 1) / TOTAL_ROUNDS) * 100}%`}} 
+              />
+            </div>
+          </div>
+
+          <div className="gonogo-signal-container">
+            {signal === 'Go' && (
+              <div className="gonogo-signal gonogo-go-signal">
+                <span className="gonogo-signal-emoji">😊</span>
+              </div>
+            )}
+            {signal === 'No-Go' && (
+              <div className="gonogo-signal gonogo-nogo-signal">
+                <span className="gonogo-signal-emoji">✋</span>
+              </div>
+            )}
+            {signal === 'Wait' && (
+              <div className="gonogo-signal gonogo-wait-signal">
+                <span className="gonogo-signal-emoji">👀</span>
+              </div>
+            )}
+          </div>
+
+          <button 
+            onClick={handleResponse} 
+            className="gonogo-btn gonogo-react-btn"
+            disabled={signal === 'Wait'}
+          >
+            👆 TAP HERE
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

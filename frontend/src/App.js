@@ -12,22 +12,23 @@ import Mouse from './pages/Mouse/Mouse';
 import About from './pages/About/About';
 import Game from './pages/Games/Games';
 import ResultsPage from './pages/Result/Result';
+import Games from './pages/Games/Games';
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/signup" element={<Signup/>} />
         <Route path="/home" element={<Home />} />
-        <Route path="/home/form" element={<Form />} />
-        <Route path="/home/Nback" element={<NBackTask />} />
-        <Route path="/home/GoNoGo" element={<GoNoGoTask />} />
-        <Route path="/home/Stroop" element={<StroopTask />} />
-        <Route path="/home/WebCam" element={< WebcamAttentiveness/>} />
-        <Route path="/home/mouse" element={< Mouse/>} />
-        <Route path="/home/about" element={<About/>} />
-        <Route path="/home/game" element={<Game/>} />
+        <Route path="/form" element={<Form />} />
+        <Route path="/Nback" element={<NBackTask />} />
+        <Route path="/GoNoGo" element={<GoNoGoTask />} />
+        <Route path="/Stroop" element={<StroopTask />} />
+        <Route path="/WebCam" element={< WebcamAttentiveness />} />
+        <Route path="/mouse" element={< Mouse />} />
+        <Route path='/games' element={<Games />} />
+        <Route path='/about' element={<About />} />
         <Route path="/results" element={<ResultsPage />} />
       </Routes>
     </Router>

@@ -32,6 +32,7 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
 
   // ------------------- Video Stream -------------------
   const [videoStream, setVideoStream] = useState(null);
+  const [cameraReady, setCameraReady] = useState(false);
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -39,7 +40,10 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         setVideoStream(stream);
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setCameraReady(true);
+        }
       } catch (err) {
         console.error("Webcam access error: ", err);
       }
@@ -58,7 +62,7 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
     canvas.height = videoRef.current.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg'); // base64
+    return canvas.toDataURL('image/jpeg');
   };
 
   const sendFrameForPrediction = async (frame, taskData) => {
@@ -264,59 +268,290 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
     }
   }, [gameState]);
 
+  // ------------------- Get Task Info -------------------
+  const getTaskInfo = () => {
+    if (taskType === 'goNoGo') {
+      return {
+        title: "Quick Reactions Game",
+        emoji: "🎯",
+        description: "Click fast when you see 'Go!' but wait when you see 'No-Go!'",
+        instruction: "Get ready to test your super quick reflexes!"
+      };
+    } else if (taskType === 'nBack') {
+      return {
+        title: "Memory Challenge",
+        emoji: "🧠",
+        description: "Remember the letters and match them!",
+        instruction: "Can you remember what you saw a few steps ago?"
+      };
+    } else if (taskType === 'stroop') {
+      return {
+        title: "Color Detective",
+        emoji: "🎨",
+        description: "Pick the COLOR of the word, not what it says!",
+        instruction: "This one's tricky - focus on the colors!"
+      };
+    }
+  };
+
+  const taskInfo = getTaskInfo();
+
   // ------------------- Render -------------------
   const renderGame = () => {
     if (taskType === 'goNoGo') {
-      if (gameState === 'idle') return <button onClick={startGame}>Start Go/No-Go</button>;
-      if (gameState === 'running') return (
-        <>
-          <p>Round {currentRound + 1} of {GO_TOTAL_ROUNDS}</p>
-          <div>{signal}</div>
-          <button onClick={goHandleResponse}>React</button>
-        </>
-      );
-      if (gameState === 'finished') return <p>Finished! Saving...</p>;
-    } else if (taskType === 'nBack') {
-      if (gameState === 'idle') return (
-        <>
-          <label>N = {nBack}</label>
-          <input type="range" min="1" max="5" value={nBack} onChange={e => setNBack(parseInt(e.target.value))} />
-          <button onClick={startGame}>Start N-Back</button>
-        </>
-      );
-      if (gameState === 'running') return (
-        <>
-          <p>Round {Math.max(0, currentIndex - nBack + 1)} of {N_TOTAL_ROUNDS}</p>
-          <div>{currentIndex >= nBack ? sequence[currentIndex] : "Get Ready..."}</div>
-          <button onClick={nHandleResponse}>Match</button>
-        </>
-      );
-      if (gameState === 'finished') return <p>Finished! Saving...</p>;
-    } else if (taskType === 'stroop') {
-      if (gameState === 'idle') return <button onClick={startGame}>Start Stroop</button>;
-      if (gameState === 'running') return (
-        <>
-          <p>Round {stroopRound + 1} of {STROOP_TOTAL_ROUNDS}</p>
-          <div style={{ fontSize: '2rem', color: stroopWord?.color }}>{stroopWord?.text}</div>
-          <div className="stroop-buttons">
-            {STROOP_COLORS.map(c => (
-              <button key={c.name} style={{ backgroundColor: c.hex }} onClick={() => stroopHandleResponse(c.hex)}>
-                {c.name}
-              </button>
-            ))}
+      if (gameState === 'idle') {
+        return (
+          <div className="game-start">
+            <div className="game-instructions">
+              <h3>How to Play:</h3>
+              <div className="instruction-item">
+                <span className="instruction-emoji">✅</span>
+                <p>When you see <strong className="go-text">GO</strong>, click the button FAST!</p>
+              </div>
+              <div className="instruction-item">
+                <span className="instruction-emoji">⛔</span>
+                <p>When you see <strong className="no-go-text">NO-GO</strong>, DON'T click anything!</p>
+              </div>
+              <div className="instruction-item">
+                <span className="instruction-emoji">👀</span>
+                <p>Stay focused and be ready!</p>
+              </div>
+            </div>
+            <button className="btn-start" onClick={startGame} disabled={!cameraReady}>
+              <span className="btn-emoji">🚀</span>
+              {cameraReady ? "Let's Play!" : "Waiting for camera..."}
+            </button>
           </div>
-        </>
-      );
-      if (gameState === 'finished') return <p>Finished! Saving...</p>;
+        );
+      }
+      if (gameState === 'running') {
+        const progress = ((currentRound + 1) / GO_TOTAL_ROUNDS) * 100;
+        return (
+          <div className="game-play">
+            <div className="progress-container">
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+              </div>
+              <p className="progress-text">Round {currentRound + 1} of {GO_TOTAL_ROUNDS}</p>
+            </div>
+            <div className={`signal-display ${signal.toLowerCase()}`}>
+              {signal === 'Go' && <span className="signal-emoji">✅</span>}
+              {signal === 'No-Go' && <span className="signal-emoji">⛔</span>}
+              {signal === 'Wait' && <span className="signal-emoji">⏳</span>}
+              <span className="signal-text">{signal}</span>
+            </div>
+            <button 
+              className={`btn-action ${signal === 'Go' ? 'pulse' : ''}`}
+              onClick={goHandleResponse}
+              disabled={signal === 'Wait'}
+            >
+              <span className="btn-emoji">👆</span>
+              CLICK!
+            </button>
+          </div>
+        );
+      }
+      if (gameState === 'finished') {
+        return (
+          <div className="game-finished">
+            <div className="finish-emoji">🎉</div>
+            <h3>Awesome Job!</h3>
+            <p className="loading-text">Saving your results...</p>
+            <div className="spinner"></div>
+          </div>
+        );
+      }
+    } else if (taskType === 'nBack') {
+      if (gameState === 'idle') {
+        return (
+          <div className="game-start">
+            <div className="game-instructions">
+              <h3>How to Play:</h3>
+              <div className="instruction-item">
+                <span className="instruction-emoji">👀</span>
+                <p>Watch the letters appear on screen</p>
+              </div>
+              <div className="instruction-item">
+                <span className="instruction-emoji">🧠</span>
+                <p>Remember the letter from {nBack} steps ago</p>
+              </div>
+              <div className="instruction-item">
+                <span className="instruction-emoji">✨</span>
+                <p>Click "Match!" if it's the same letter</p>
+              </div>
+              <div className="difficulty-selector">
+                <label className="difficulty-label">
+                  <span className="label-emoji">⚡</span>
+                  Difficulty Level: {nBack}
+                </label>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="5" 
+                  value={nBack} 
+                  onChange={e => setNBack(parseInt(e.target.value))}
+                  className="difficulty-slider"
+                />
+                <div className="difficulty-labels">
+                  <span>Easy</span>
+                  <span>Hard</span>
+                </div>
+              </div>
+            </div>
+            <button className="btn-start" onClick={startGame} disabled={!cameraReady}>
+              <span className="btn-emoji">🚀</span>
+              {cameraReady ? "Start Challenge!" : "Waiting for camera..."}
+            </button>
+          </div>
+        );
+      }
+      if (gameState === 'running') {
+        const progress = (Math.max(0, currentIndex - nBack + 1) / N_TOTAL_ROUNDS) * 100;
+        const displayLetter = currentIndex >= nBack ? sequence[currentIndex] : "Get Ready...";
+        return (
+          <div className="game-play">
+            <div className="progress-container">
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+              </div>
+              <p className="progress-text">Round {Math.max(0, currentIndex - nBack + 1)} of {N_TOTAL_ROUNDS}</p>
+            </div>
+            <div className="nback-display">
+              <div className="nback-letter">{displayLetter}</div>
+            </div>
+            <button className="btn-action" onClick={nHandleResponse} disabled={currentIndex < nBack}>
+              <span className="btn-emoji">✨</span>
+              Match!
+            </button>
+          </div>
+        );
+      }
+      if (gameState === 'finished') {
+        return (
+          <div className="game-finished">
+            <div className="finish-emoji">🌟</div>
+            <h3>Great Memory!</h3>
+            <p className="loading-text">Saving your results...</p>
+            <div className="spinner"></div>
+          </div>
+        );
+      }
+    } else if (taskType === 'stroop') {
+      if (gameState === 'idle') {
+        return (
+          <div className="game-start">
+            <div className="game-instructions">
+              <h3>How to Play:</h3>
+              <div className="instruction-item">
+                <span className="instruction-emoji">🎨</span>
+                <p>You'll see a word in color</p>
+              </div>
+              <div className="instruction-item">
+                <span className="instruction-emoji">🤔</span>
+                <p>Click the button that matches the COLOR (not the word!)</p>
+              </div>
+              <div className="instruction-item">
+                <span className="instruction-emoji">💡</span>
+                <p>Example: If you see <span style={{color: '#FF0000'}}>BLUE</span>, click RED!</p>
+              </div>
+            </div>
+            <button className="btn-start" onClick={startGame} disabled={!cameraReady}>
+              <span className="btn-emoji">🚀</span>
+              {cameraReady ? "I'm Ready!" : "Waiting for camera..."}
+            </button>
+          </div>
+        );
+      }
+      if (gameState === 'running') {
+        const progress = ((stroopRound + 1) / STROOP_TOTAL_ROUNDS) * 100;
+        return (
+          <div className="game-play">
+            <div className="progress-container">
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+              </div>
+              <p className="progress-text">Round {stroopRound + 1} of {STROOP_TOTAL_ROUNDS}</p>
+            </div>
+            <div className="stroop-display">
+              <p className="stroop-hint">Pick the COLOR of this word:</p>
+              <div className="stroop-word" style={{ color: stroopWord?.color }}>
+                {stroopWord?.text}
+              </div>
+            </div>
+            <div className="stroop-buttons">
+              {STROOP_COLORS.map(c => (
+                <button 
+                  key={c.name} 
+                  className="stroop-color-btn"
+                  style={{ backgroundColor: c.hex }} 
+                  onClick={() => stroopHandleResponse(c.hex)}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      }
+      if (gameState === 'finished') {
+        return (
+          <div className="game-finished">
+            <div className="finish-emoji">🎨</div>
+            <h3>Color Master!</h3>
+            <p className="loading-text">Saving your results...</p>
+            <div className="spinner"></div>
+          </div>
+        );
+      }
     }
   };
 
   return (
-    <div>
+    <div className="webcam-page">
       <Header />
-      <video ref={videoRef} autoPlay muted width={320} height={240} />
-      <div className="game-container">{renderGame()}</div>
-      {apiMessage && <p>{apiMessage}</p>}
+      
+      <main className="webcam-main">
+        <div className="game-header">
+          <div className="game-title-section">
+            <span className="game-emoji">{taskInfo.emoji}</span>
+            <h1 className="game-title">{taskInfo.title}</h1>
+          </div>
+          <p className="game-description">{taskInfo.description}</p>
+          <p className="game-instruction">{taskInfo.instruction}</p>
+        </div>
+
+        <div className="video-section">
+          <div className="video-box">
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              muted 
+              className={`video ${!cameraReady ? 'hidden' : ''}`}
+            />
+            {!cameraReady && (
+              <div className="video-placeholder">
+                <span className="placeholder-emoji">📹</span>
+                <p>Connecting to camera...</p>
+              </div>
+            )}
+          </div>
+          <p className="camera-notice">
+            <span className="notice-emoji">👀</span>
+            Make sure you're looking at the screen so we can track your attention!
+          </p>
+        </div>
+
+        <div className="game-container">
+          {renderGame()}
+        </div>
+
+        {apiMessage && (
+          <div className="api-message">
+            {apiMessage}
+          </div>
+        )}
+      </main>
+
       <Footer />
     </div>
   );
