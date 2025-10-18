@@ -321,7 +321,7 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
       });
 
       const data = await res.json();
-      if (res.ok) setTimeout(() => navigate('/results'), 1000);
+      if (res.ok) setTimeout(() => navigate('/home/results'), 1000);
       else setApiMessage(`❌ Error: ${data.error || 'Failed to save'}`);
     } catch (err) {
       setApiMessage(`❌ Network error: ${err.message}`);
@@ -341,7 +341,6 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
     }
   }, [gameState]);
 
-<<<<<<< HEAD
   // ------------------- Get Task Info -------------------
   const getTaskInfo = () => {
     if (taskType === 'goNoGo') {
@@ -369,21 +368,10 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
   };
 
   const taskInfo = getTaskInfo();
-=======
-  // Add debugging useEffect
-  useEffect(() => {
-    console.log('📊 State Update - GameState:', gameState, 'Round:', currentRound + 1, 'Signal:', signal, 'Score:', score);
-  }, [gameState, currentRound, signal, score]);
-
-  useEffect(() => {
-    console.log('🎮 Game Loop Effect Triggered - taskType:', taskType, 'gameState:', gameState, 'currentRound:', currentRound);
-  }, [taskType, gameState, currentRound]);
->>>>>>> ac6fe47855e8255dbbab6b4b311df361e4080302
 
   // ------------------- Render -------------------
   const renderGame = () => {
     if (taskType === 'goNoGo') {
-<<<<<<< HEAD
       if (gameState === 'idle') {
         return (
           <div className="game-start">
@@ -406,109 +394,6 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
               <span className="btn-emoji">🚀</span>
               {cameraReady ? "Let's Play!" : "Waiting for camera..."}
             </button>
-=======
-      if (gameState === 'idle') return (
-        <div className="game-start-container">
-          <button className="start-button" onClick={startGame}>
-            Start Go/No-Go
-          </button>
-          <p className="game-instructions">
-            Click when you see <span style={{color: 'green', fontWeight: 'bold'}}>"Go"</span>, 
-            don't click for <span style={{color: 'red', fontWeight: 'bold'}}>"No-Go"</span>
-          </p>
-        </div>
-      );
-      if (gameState === 'running') return (
-        <div className="game-running-container">
-          <p className="round-counter">Round {currentRound + 1} of {GO_TOTAL_ROUNDS}</p>
-          <div 
-            className={`signal ${signal.toLowerCase()}`}
-            style={{
-              fontSize: '3rem',
-              fontWeight: 'bold',
-              color: signal === 'Go' ? 'green' : signal === 'No-Go' ? 'red' : 'gray',
-              margin: '2rem 0',
-              padding: '1rem',
-              border: `3px solid ${signal === 'Go' ? 'green' : signal === 'No-Go' ? 'red' : 'gray'}`,
-              borderRadius: '10px',
-              backgroundColor: signal === 'Wait' ? '#f0f0f0' : 'white'
-            }}
-          >
-            {signal}
-          </div>
-          <button 
-            className="react-button"
-            onClick={goHandleResponse} 
-            disabled={signal === 'Wait'}
-            style={{ 
-              marginTop: '20px', 
-              padding: '15px 30px',
-              fontSize: '1.2rem',
-              backgroundColor: signal === 'Wait' ? '#ccc' : '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: signal === 'Wait' ? 'not-allowed' : 'pointer'
-            }}
-          >
-            React
-          </button>
-          <div className="score-display" style={{ marginTop: '20px', fontSize: '1rem' }}>
-            <div>Hits: {score.hits || 0}</div>
-            <div>Misses: {score.misses || 0}</div>
-            <div>False Alarms: {score.falseAlarms || 0}</div>
-            <div>Correct Rejections: {score.correctRejections || 0}</div>
-          </div>
-        </div>
-      );
-      if (gameState === 'finished') return (
-        <div className="game-finished-container">
-          <p className="finished-message">✅ Finished! Saving results...</p>
-          <div className="final-score">
-            <h3>Final Score:</h3>
-            <div>Hits: {score.hits || 0}</div>
-            <div>Misses: {score.misses || 0}</div>
-            <div>False Alarms: {score.falseAlarms || 0}</div>
-            <div>Correct Rejections: {score.correctRejections || 0}</div>
-            <div>Average Reaction Time: {reactionTimes.length > 0 ? Math.round(reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length) : 0}ms</div>
-          </div>
-        </div>
-      );
-    } else if (taskType === 'nBack') {
-      if (gameState === 'idle') return (
-        <div className="nback-config">
-          <label>N = {nBack}</label>
-          <input 
-            type="range" 
-            min="1" 
-            max="5" 
-            value={nBack} 
-            onChange={e => setNBack(parseInt(e.target.value))} 
-          />
-          <button onClick={startGame}>Start N-Back</button>
-        </div>
-      );
-      if (gameState === 'running') return (
-        <>
-          <p>Round {Math.max(0, currentIndex - nBack + 1)} of {N_TOTAL_ROUNDS}</p>
-          <div>{currentIndex >= nBack ? sequence[currentIndex] : "Get Ready..."}</div>
-          <button onClick={nHandleResponse}>Match</button>
-        </>
-      );
-      if (gameState === 'finished') return <p>Finished! Saving...</p>;
-    } else if (taskType === 'stroop') {
-      if (gameState === 'idle') return <button onClick={startGame}>Start Stroop</button>;
-      if (gameState === 'running') return (
-        <>
-          <p>Round {stroopRound + 1} of {STROOP_TOTAL_ROUNDS}</p>
-          <div style={{ fontSize: '2rem', color: stroopWord?.color }}>{stroopWord?.text}</div>
-          <div className="stroop-buttons">
-            {STROOP_COLORS.map(c => (
-              <button key={c.name} style={{ backgroundColor: c.hex }} onClick={() => stroopHandleResponse(c.hex)}>
-                {c.name}
-              </button>
-            ))}
->>>>>>> ac6fe47855e8255dbbab6b4b311df361e4080302
           </div>
         );
       }
@@ -695,7 +580,6 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
   };
 
   return (
-<<<<<<< HEAD
     <div className="webcam-page">
       <Header />
       
@@ -741,25 +625,6 @@ export default function ADHDTasks({ taskType = 'goNoGo' }) {
         )}
       </main>
 
-=======
-    <div className="adhd-tasks-container">
-      <Header />
-      <div className="video-container">
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          muted 
-          width={320} 
-          height={240}
-          style={{ borderRadius: '10px', margin: '20px 0' }}
-        />
-      </div>
-      <div className="game-container">
-        {renderGame()}
-      </div>
-      {loading && <p className="loading-message">Saving your results...</p>}
-      {apiMessage && <p className="api-message">{apiMessage}</p>}
->>>>>>> ac6fe47855e8255dbbab6b4b311df361e4080302
       <Footer />
     </div>
   );

@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { auth, provider, signInWithPopup } from '../../firebase';
 import { Brain, Eye, EyeOff, Sparkles, Star } from 'lucide-react';
 import './Login.css';
+
+const BACKEND_URL = 'https://adhd-assessment-backend.onrender.com/api/auth/login';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -13,27 +15,54 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
 
+  // ✅ Google Login
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
       setError('');
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const token = await result.user.getIdToken();
+      localStorage.setItem('firebaseToken', token);
       navigate('/home');
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = (e) => {
+  // ✅ Email/Password Login
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('Please use Google Sign-In for this demo');
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      navigate('/home');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="login-container">
-      {/* Floating decorative elements */}
+      {/* Decorative floating elements */}
       <div className="deco-star deco-top-left">
         <Star className="icon-star-large" />
       </div>
@@ -136,12 +165,12 @@ export default function Login() {
             </div>
           </div>
 
-          <button type="submit" className="submit-btn">
-            {isSignUp ? '🚀 Create Account!' : '🎯 Let\'s Go!'}
+          <button type="submit" className="submit-btn" disabled={loading}>
+            {loading ? '⏳ Please wait...' : (isSignUp ? '🚀 Create Account!' : '🎯 Let\'s Go!')}
           </button>
         </form>
 
-        {/* Toggle between Login/Signup */}
+        {/* Toggle Login / Signup */}
         <div className="switch-mode">
           <p className="switch-text">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}
@@ -156,12 +185,10 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Forgot Password - only show on login */}
         {!isSignUp && (
           <p className="forgot-password">🤔 Forgot password?</p>
         )}
 
-        {/* Fun footer */}
         <div className="footer-text">
           <p>🌟 Made with love for awesome kids like you! 🌟</p>
         </div>

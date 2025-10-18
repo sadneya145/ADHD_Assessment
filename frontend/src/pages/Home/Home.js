@@ -14,7 +14,7 @@ const Home = () => {
       description: "Match colors with words in this tricky brain teaser!",
       skillTest: "Tests focus and response control",
       icon: "🎨",
-      link: "/Stroop",
+      link: "/home/Stroop",
       color: "#95E1D3",
       bgGradient: "linear-gradient(135deg, #95E1D3 0%, #38EF7D 100%)"
     },
@@ -24,7 +24,7 @@ const Home = () => {
       description: "Click fast but be careful - only tap the right ones!",
       skillTest: "Measures attention and impulse control",
       icon: "🎯",
-      link: "/GoNoGo",
+      link: "/home/GoNoGo",
       color: "#4ECDC4",
       bgGradient: "linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%)"
     },
@@ -34,7 +34,7 @@ const Home = () => {
       description: "Remember patterns and test your super memory powers!",
       skillTest: "Trains memory and concentration",
       icon: "🧠",
-      link: "/Nback",
+      link: "/home/Nback",
       color: "#FF6B6B",
       bgGradient: "linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)"
     },
@@ -44,7 +44,7 @@ const Home = () => {
       description: "Let's see how well you can pay attention during activities!",
       skillTest: "Monitors attention patterns",
       icon: "📹",
-      link: "/WebCam",
+      link: "/home/WebCam",
       color: "#FFE66D",
       bgGradient: "linear-gradient(135deg, #FFE66D 0%, #FDBB2D 100%)"
     },
@@ -54,7 +54,7 @@ const Home = () => {
       description: "Control your mouse with precision and speed!",
       skillTest: "Assesses motor control and coordination",
       icon: "🖱️",
-      link: "/mouse",
+      link: "/home/mouse",
       color: "#A8E6CF",
       bgGradient: "linear-gradient(135deg, #A8E6CF 0%, #56CCF2 100%)"
     },
@@ -64,7 +64,7 @@ const Home = () => {
       description: "Answer questions about your child's daily activities and habits.",
       skillTest: "Gathers behavioral insights",
       icon: "📋",
-      link: "/form",
+      link: "/home/form",
       color: "#C7CEEA",
       bgGradient: "linear-gradient(135deg, #C7CEEA 0%, #B490CA 100%)"
     }
@@ -155,11 +155,11 @@ const Home = () => {
               Results are private and meant to guide you toward professional assessment if needed.
             </p>
             <div className="hero-actions">
-              <Link to="/form" className="btn btn-primary">
+              <Link to="/home/form" className="btn btn-primary">
                 <span className="btn-icon">🚀</span>
                 Start Playing
               </Link>
-              <Link to="/about" className="btn btn-secondary">
+              <Link to="/home/about" className="btn btn-secondary">
                 <span className="btn-icon">📖</span>
                 Learn More
               </Link>

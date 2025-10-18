@@ -14,10 +14,10 @@ const Header = () => {
 
     const navItems = [
         { to: "/home", label: "Home", emoji: "🏠", color: "#FF6B6B" },
-        { to: "/games", label: "Games", emoji: "🎮", color: "#4ECDC4" },
-        { to: "/webcam", label: "Video", emoji: "📹", color: "#95E1D3" },
-        { to: "/form", label: "Form", emoji: "📝", color: "#FFE66D" },
-        { to: "/about", label: "About", emoji: "ℹ️", color: "#A8E6CF" }
+        { to: "/home/games", label: "Games", emoji: "🎮", color: "#4ECDC4" },
+        { to: "/home/webcam", label: "Video", emoji: "📹", color: "#95E1D3" },
+        { to: "/home/form", label: "Form", emoji: "📝", color: "#FFE66D" },
+        { to: "/home/about", label: "About", emoji: "ℹ️", color: "#A8E6CF" }
     ];
 
     const handleLogout = () => {
