@@ -27,8 +27,8 @@ const STROOP_COLORS = [
 ];
 
 // ------------------- FastAPI Backend URL -------------------
-// const FASTAPI_BASE_URL = 'http://localhost:10000'; // Change to your deployed URL
-const FASTAPI_BASE_URL = 'https://adhd-assessment-video-analysis.onrender.com';
+const FASTAPI_BASE_URL = 'http://localhost:10000'; // Change to your deployed URL
+// const FASTAPI_BASE_URL = 'https://adhd-assessment-video-analysis.onrender.com';
 
 // ------------------- Component -------------------
 export default function ADHDTasks({taskType = 'goNoGo'}) {
@@ -652,8 +652,8 @@ export default function ADHDTasks({taskType = 'goNoGo'}) {
       console.log('💾 Submitting to backend:', {
         url: 'https://adhd-assessment-backend.onrender.com/api/assessments',
         dataKeys: Object.keys(combinedData),
-        composite_score: combinedData.composite_score,
-        risk_level: combinedData.risk_level,
+        composite_score: combinedData.modelResult?.composite_score,
+        risk_level: combinedData.modelResult?.risk_level,
       });
 
       const res = await fetch(

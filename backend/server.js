@@ -40,16 +40,14 @@ const userSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', userSchema);
-
 const assessmentSchema = new mongoose.Schema(
   {
-    userId: {type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true},
-    completedAt: {type: Date, default: Date.now},
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    completedAt: { type: Date, default: Date.now },
 
-    // Questionnaire Results
     questionnaire: {
-      inattentiveScore: Number,
-      hyperactiveScore: Number,
+      inattentiveScore: { type: Number, default: null },
+      hyperactiveScore: { type: Number, default: null },
       classification: String,
       responses: [
         {
@@ -61,66 +59,63 @@ const assessmentSchema = new mongoose.Schema(
       ],
     },
 
-    // Go/No-Go Task Results
     goNoGo: {
-      hits: Number,
-      misses: Number,
-      falseAlarms: Number,
-      correctRejections: Number,
-      avgReactionTime: Number,
+      hits: { type: Number, default: null },
+      misses: { type: Number, default: null },
+      falseAlarms: { type: Number, default: null },
+      correctRejections: { type: Number, default: null },
+      avgReactionTime: { type: Number, default: null },
       reactionTimes: [Number],
     },
 
-    // N-Back Task Results
     nBack: {
-      nLevel: Number,
-      hits: Number,
-      misses: Number,
-      falseAlarms: Number,
-      correctRejections: Number,
-      accuracy: Number,
+      nLevel: { type: Number, default: null },
+      hits: { type: Number, default: null },
+      misses: { type: Number, default: null },
+      falseAlarms: { type: Number, default: null },
+      correctRejections: { type: Number, default: null },
+      accuracy: { type: Number, default: null },
     },
 
-    // Stroop Task Results
     stroop: {
-      score: Number,
-      totalRounds: Number,
-      avgReactionTime: Number,
+      score: { type: Number, default: null },
+      totalRounds: { type: Number, default: null },
+      avgReactionTime: { type: Number, default: null },
       reactionTimes: [Number],
     },
 
-    // Mouse Tracking Results
     mouseTracking: {
-      score: Number,
-      mouseMovements: Number,
+      score: { type: Number, default: null },
+      mouseMovements: { type: Number, default: null },
       analysisResult: {
         adhd_type: String,
-        confidence: Number,
+        confidence: { type: Number, default: null },
         classifications: mongoose.Schema.Types.Mixed,
       },
     },
 
-    // Model result from Python assessment
+    // 🧠 Model result from Python assessment
     modelResult: {
-      composite_score: Number, // e.g., 0.79
-      likelihood: String, // e.g., "LOW"
-      risk_level: String, // e.g., "low"
+      composite_score: { type: Number, default: null },
+      likelihood: { type: String, default: null },
+      risk_level: { type: String, default: null },
       domain_scores: {
-        attention: Number,
-        impulsivity: Number,
-        working_memory: Number,
+        attention: { type: Number, default: null },
+        impulsivity: { type: Number, default: null },
+        working_memory: { type: Number, default: null },
       },
-      features: mongoose.Schema.Types.Mixed, // holds the nested Python dict
+      features: mongoose.Schema.Types.Mixed,
     },
-    // Overall Assessment
+
     overallResult: {
       finalClassification: String,
-      confidence: Number,
+      confidence: { type: Number, default: null },
       recommendations: [String],
     },
   },
-  {timestamps: true}
-); // automatically adds createdAt and updatedAt
+  { timestamps: true }
+);
+
 
 const Assessment = mongoose.model('Assessment', assessmentSchema);
 
@@ -281,22 +276,22 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
   try {
     const { questionnaire, goNoGo, nBack, stroop, mouseTracking } = req.body;
 
-    // Prepare Python input only with available tests
+    // Prepare Python input dynamically
     const pythonInput = {};
     if (goNoGo) pythonInput.goNoGo = goNoGo;
     if (nBack) pythonInput.nBack = nBack;
     if (stroop) pythonInput.stroop = stroop;
 
-    // Run Python assessment
+    // Run Python model
     const modelResult = await runPythonAssessment(pythonInput);
-    console.log('Python assessment result:', modelResult);
+    console.log('🧠 Python returned:', modelResult);
 
     if (!modelResult || modelResult.error) {
-      console.error('Python model error:', modelResult?.error);
+      console.error('Python model failed:', modelResult?.error);
       return res.status(500).json({ error: 'Python model failed' });
     }
 
-    // Map Python result exactly to schema, including top-level fields
+    // ✅ Safe assignment: use spread, no default 0s
     const assessment = new Assessment({
       userId: req.user.userId,
       questionnaire,
@@ -305,24 +300,15 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       stroop,
       mouseTracking,
       modelResult: {
-        composite_score: modelResult.composite_score ?? 0,
-        likelihood: modelResult.likelihood ?? "Unknown",
-        risk_level: modelResult.risk_level ?? "unknown",
-        domain_scores: {
-          attention: modelResult.domain_scores?.attention ?? 0,
-          impulsivity: modelResult.domain_scores?.impulsivity ?? 0,
-          working_memory: modelResult.domain_scores?.working_memory ?? 0,
-        },
-        features: modelResult.features ?? {},
-        // Optional top-level fields for frontend convenience
-        overall_score: modelResult.overall_score ?? 0,
-        attention_risk: modelResult.attention_risk ?? 0,
-        movement_risk: modelResult.movement_risk ?? 0,
+        composite_score: modelResult.composite_score,
+        likelihood: modelResult.likelihood,
+        risk_level: modelResult.risk_level,
+        domain_scores: modelResult.domain_scores || {},
+        features: modelResult.features || {},
       },
-      createdAt: new Date(),
       overallResult: {
-        finalClassification: modelResult.likelihood ?? "Unknown",
-        confidence: modelResult.composite_score ?? 0,
+        finalClassification: modelResult.likelihood,
+        confidence: modelResult.composite_score,
         recommendations: [
           `Attention Score: ${modelResult.domain_scores?.attention ?? 0}`,
           `Impulsivity Score: ${modelResult.domain_scores?.impulsivity ?? 0}`,
@@ -332,20 +318,22 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
     });
 
     await assessment.save();
+
     await User.findByIdAndUpdate(req.user.userId, {
       $push: { assessments: assessment._id },
     });
 
     res.status(201).json({
-      message: 'Assessment saved successfully',
+      message: '✅ Assessment saved successfully',
       modelResult,
       assessment,
     });
   } catch (error) {
-    console.error('Assessment save error:', error);
+    console.error('❌ Error saving assessment:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 app.get('/api/analysis/latest', authenticateToken, async (req, res) => {
