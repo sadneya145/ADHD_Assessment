@@ -27,8 +27,8 @@ const STROOP_COLORS = [
 ];
 
 // ------------------- FastAPI Backend URL -------------------
-const FASTAPI_BASE_URL = 'http://localhost:10000'; // Change to your deployed URL
-// const FASTAPI_BASE_URL = 'https://adhd-assessment-video-analysis.onrender.com';
+// const FASTAPI_BASE_URL = 'http://localhost:10000'; // Change to your deployed URL
+const FASTAPI_BASE_URL = 'https://adhd-assessment-video-analysis.onrender.com';
 
 // ------------------- Component -------------------
 export default function ADHDTasks({taskType = 'goNoGo'}) {
