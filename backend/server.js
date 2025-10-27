@@ -277,22 +277,24 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
   try {
     console.log("📥 Received assessment payload:", JSON.stringify(req.body, null, 2));
 
-    const { questionnaire, nBack, stroop, mouseTracking } = req.body;
-    const goNoGo = req.body.goNoGo || req.body.taskPerformance?.goNoGo || null;
+    const { questionnaire, mouseTracking } = req.body;
+    const taskPerformance = req.body.taskPerformance || {};
+
+    const goNoGo = taskPerformance.goNoGo || req.body.goNoGo || null;
+    const nBack = taskPerformance.nBack || req.body.nBack || null;
+    const stroop = taskPerformance.stroop || req.body.stroop || null;
+
     let modelResult = req.body.modelResult || null;
 
-    // 🧠 If no modelResult provided, fallback to Python
     if (!modelResult || Object.keys(modelResult).length === 0) {
-      console.log("⚙️ Running Python model (no modelResult provided by frontend)");
+      console.log("⚙️ Running Python model (no modelResult provided)");
       const pythonInput = {};
       if (goNoGo) pythonInput.goNoGo = goNoGo;
       if (nBack) pythonInput.nBack = nBack;
       if (stroop) pythonInput.stroop = stroop;
-
       modelResult = await runPythonAssessment(pythonInput);
     }
 
-    // ✅ Sanitize and coerce numeric types
     const cleanModelResult = {
       composite_score: Number(modelResult?.composite_score ?? 0),
       likelihood: modelResult?.likelihood || "UNKNOWN",
@@ -305,7 +307,8 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       features: modelResult?.features || {},
     };
 
-    // ✅ Create new assessment
+    console.log("🎮 Parsed task data:", { goNoGo, nBack, stroop, mouseTracking, modelResult: cleanModelResult });
+
     const assessment = new Assessment({
       userId: req.user.userId,
       questionnaire,
@@ -326,24 +329,15 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
     });
 
     const saved = await assessment.save();
-    await User.findByIdAndUpdate(req.user.userId, {
-      $push: { assessments: saved._id },
-    });
+    await User.findByIdAndUpdate(req.user.userId, { $push: { assessments: saved._id } });
 
     console.log("✅ Saved Assessment:", saved.modelResult);
-
-    res.status(201).json({
-      message: "✅ Assessment saved successfully",
-      modelResult: cleanModelResult,
-      assessment: saved,
-    });
+    res.status(201).json({ message: "✅ Assessment saved successfully", assessment: saved });
   } catch (error) {
     console.error("❌ Error saving assessment:", error);
     res.status(500).json({ error: error.message });
   }
 });
-
-
 
 app.get('/api/analysis/latest', authenticateToken, async (req, res) => {
   try {
