@@ -1,0 +1,17 @@
+names:
+- Attentive
+- Daydreaming
+- Distracted
+- Hand Rising
+- Phone Use
+- Sleepy
+nc: 6
+roboflow:
+  license: CC BY 4.0
+  project: student-attention-tracking
+  url: https://universe.roboflow.com/my-model/student-attention-tracking/dataset/2
+  version: 2
+  workspace: my-model
+test: ../test/images
+train: ../train/images
+val: ../valid/images

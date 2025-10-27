@@ -41,86 +41,86 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
-const assessmentSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  completedAt: { type: Date, default: Date.now },
+const assessmentSchema = new mongoose.Schema(
+  {
+    userId: {type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true},
+    completedAt: {type: Date, default: Date.now},
 
-  // Questionnaire Results
-  questionnaire: {
-    inattentiveScore: Number,
-    hyperactiveScore: Number,
-    classification: String,
-    responses: [
-      {
-        questionId: String,
-        question: String,
-        response: String,
-        category: String,
+    // Questionnaire Results
+    questionnaire: {
+      inattentiveScore: Number,
+      hyperactiveScore: Number,
+      classification: String,
+      responses: [
+        {
+          questionId: String,
+          question: String,
+          response: String,
+          category: String,
+        },
+      ],
+    },
+
+    // Go/No-Go Task Results
+    goNoGo: {
+      hits: Number,
+      misses: Number,
+      falseAlarms: Number,
+      correctRejections: Number,
+      avgReactionTime: Number,
+      reactionTimes: [Number],
+    },
+
+    // N-Back Task Results
+    nBack: {
+      nLevel: Number,
+      hits: Number,
+      misses: Number,
+      falseAlarms: Number,
+      correctRejections: Number,
+      accuracy: Number,
+    },
+
+    // Stroop Task Results
+    stroop: {
+      score: Number,
+      totalRounds: Number,
+      avgReactionTime: Number,
+      reactionTimes: [Number],
+    },
+
+    // Mouse Tracking Results
+    mouseTracking: {
+      score: Number,
+      mouseMovements: Number,
+      analysisResult: {
+        adhd_type: String,
+        confidence: Number,
+        classifications: mongoose.Schema.Types.Mixed,
       },
-    ],
-  },
+    },
 
-  // Go/No-Go Task Results
-  goNoGo: {
-    hits: Number,
-    misses: Number,
-    falseAlarms: Number,
-    correctRejections: Number,
-    avgReactionTime: Number,
-    reactionTimes: [Number],
-  },
-
-  // N-Back Task Results
-  nBack: {
-    nLevel: Number,
-    hits: Number,
-    misses: Number,
-    falseAlarms: Number,
-    correctRejections: Number,
-    accuracy: Number,
-  },
-
-  // Stroop Task Results
-  stroop: {
-    score: Number,
-    totalRounds: Number,
-    avgReactionTime: Number,
-    reactionTimes: [Number],
-  },
-
-  // Mouse Tracking Results
-  mouseTracking: {
-    score: Number,
-    mouseMovements: Number,
-    analysisResult: {
-      adhd_type: String,
+    // Model result from Python assessment
+    modelResult: {
+      composite_score: Number, // e.g., 0.79
+      likelihood: String, // e.g., "LOW"
+      risk_level: String, // e.g., "low"
+      domain_scores: {
+        attention: Number,
+        impulsivity: Number,
+        working_memory: Number,
+      },
+      features: mongoose.Schema.Types.Mixed, // holds the nested Python dict
+    },
+    // Overall Assessment
+    overallResult: {
+      finalClassification: String,
       confidence: Number,
-      classifications: mongoose.Schema.Types.Mixed,
+      recommendations: [String],
     },
   },
-
-  // Model result from Python assessment
-  modelResult: {
-    composite_score: { type: Number, default: 0 },
-    likelihood: { type: String, default: "Unknown" },
-    risk_level: { type: String, default: "unknown" },
-    domain_scores: {
-      attention: { type: Number, default: 0 },
-      impulsivity: { type: Number, default: 0 },
-      working_memory: { type: Number, default: 0 },
-    },
-    features: { type: mongoose.Schema.Types.Mixed, default: {} },
-  },
-
-  // Overall Assessment
-  overallResult: {
-    finalClassification: String,
-    confidence: Number,
-    recommendations: [String],
-  },
-
-}, { timestamps: true }); // automatically adds createdAt and updatedAt
-
+  {timestamps: true}
+); // automatically adds createdAt and updatedAt
 
 const Assessment = mongoose.model('Assessment', assessmentSchema);
 
@@ -275,27 +275,28 @@ app.post('/api/auth/google', async (req, res) => {
 });
 
 // ==================== ASSESSMENT ROUTES ====================
-
-
 const runPythonAssessment = require('./runGames');
+
 app.post('/api/assessments', authenticateToken, async (req, res) => {
   try {
-    const {questionnaire, goNoGo, nBack, stroop, mouseTracking} = req.body;
+    const { questionnaire, goNoGo, nBack, stroop, mouseTracking } = req.body;
 
-    // Only send available tests to Python
+    // Prepare Python input only with available tests
     const pythonInput = {};
     if (goNoGo) pythonInput.goNoGo = goNoGo;
     if (nBack) pythonInput.nBack = nBack;
     if (stroop) pythonInput.stroop = stroop;
 
+    // Run Python assessment
     const modelResult = await runPythonAssessment(pythonInput);
-    console.log("Python assessment result:", modelResult);
+    console.log('Python assessment result:', modelResult);
 
     if (!modelResult || modelResult.error) {
       console.error('Python model error:', modelResult?.error);
-      return res.status(500).json({error: 'Python model failed'});
+      return res.status(500).json({ error: 'Python model failed' });
     }
 
+    // Map Python result exactly to schema, including top-level fields
     const assessment = new Assessment({
       userId: req.user.userId,
       questionnaire,
@@ -304,30 +305,35 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       stroop,
       mouseTracking,
       modelResult: {
-        composite_score: modelResult.composite_score,
-        likelihood: modelResult.likelihood,
+        composite_score: modelResult.composite_score ?? 0,
+        likelihood: modelResult.likelihood ?? "Unknown",
+        risk_level: modelResult.risk_level ?? "unknown",
         domain_scores: {
-          attention: modelResult.domain_scores.attention ?? 0,
-          impulsivity: modelResult.domain_scores.impulsivity ?? 0,
-          working_memory: modelResult.domain_scores.working_memory ?? 0,
+          attention: modelResult.domain_scores?.attention ?? 0,
+          impulsivity: modelResult.domain_scores?.impulsivity ?? 0,
+          working_memory: modelResult.domain_scores?.working_memory ?? 0,
         },
         features: modelResult.features ?? {},
+        // Optional top-level fields for frontend convenience
+        overall_score: modelResult.overall_score ?? 0,
+        attention_risk: modelResult.attention_risk ?? 0,
+        movement_risk: modelResult.movement_risk ?? 0,
       },
       createdAt: new Date(),
       overallResult: {
-        finalClassification: modelResult.likelihood,
-        confidence: modelResult.composite_score,
+        finalClassification: modelResult.likelihood ?? "Unknown",
+        confidence: modelResult.composite_score ?? 0,
         recommendations: [
-          `Attention Score: ${modelResult.domain_scores.attention}`,
-          `Impulsivity Score: ${modelResult.domain_scores.impulsivity}`,
-          `Working Memory Score: ${modelResult.domain_scores.working_memory}`,
+          `Attention Score: ${modelResult.domain_scores?.attention ?? 0}`,
+          `Impulsivity Score: ${modelResult.domain_scores?.impulsivity ?? 0}`,
+          `Working Memory Score: ${modelResult.domain_scores?.working_memory ?? 0}`,
         ],
       },
     });
 
     await assessment.save();
     await User.findByIdAndUpdate(req.user.userId, {
-      $push: {assessments: assessment._id},
+      $push: { assessments: assessment._id },
     });
 
     res.status(201).json({
@@ -337,27 +343,30 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Assessment save error:', error);
-    res.status(500).json({error: error.message});
+    res.status(500).json({ error: error.message });
   }
 });
+
 
 app.get('/api/analysis/latest', authenticateToken, async (req, res) => {
   try {
     // Fetch the latest assessment that has a modelResult
     const result = await Assessment.findOne({
       userId: req.user.userId,
-      modelResult: { $exists: true, $ne: {} }, // only with modelResult
+      modelResult: {$exists: true, $ne: {}}, // only with modelResult
     })
-      .sort({ createdAt: -1 }) // newest first
+      .sort({createdAt: -1}) // newest first
       .lean();
 
     if (!result) {
-      return res.status(404).json({ error: 'No assessments with model results found' });
+      return res
+        .status(404)
+        .json({error: 'No assessments with model results found'});
     }
 
     // Extract domain scores safely
     const modelResult = result.modelResult || {};
-    
+
     const domain_scores = {
       attention: Number(modelResult.domain_scores?.attention ?? 0),
       impulsivity: Number(modelResult.domain_scores?.impulsivity ?? 0),
@@ -389,11 +398,9 @@ app.get('/api/analysis/latest', authenticateToken, async (req, res) => {
     res.json(response);
   } catch (err) {
     console.error('Error fetching latest assessment:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({error: 'Server error'});
   }
 });
-
-
 
 // Get User's Assessments
 app.get('/api/assessments', authenticateToken, async (req, res) => {

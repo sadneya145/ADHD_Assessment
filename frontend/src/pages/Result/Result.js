@@ -20,7 +20,7 @@ export default function ResultsPage() {
           return;
         }
 
-        const res = await fetch("https://adhd-assessment-backend.onrender.com/api/analysis/latest", {
+        const res = await fetch("https://adhd-assessment-backend.onrender.com/api/assessments", {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
