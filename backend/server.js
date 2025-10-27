@@ -11,7 +11,9 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
 
 // MongoDB Connection
 const MONGODB_URI =
@@ -271,27 +273,39 @@ app.post('/api/auth/google', async (req, res) => {
 
 // ==================== ASSESSMENT ROUTES ====================
 const runPythonAssessment = require('./runGames');
-
 app.post('/api/assessments', authenticateToken, async (req, res) => {
   try {
-    const { questionnaire, goNoGo, nBack, stroop, mouseTracking } = req.body;
+    console.log("📥 Received assessment payload:", JSON.stringify(req.body, null, 2));
 
-    // Prepare Python input dynamically
-    const pythonInput = {};
-    if (goNoGo) pythonInput.goNoGo = goNoGo;
-    if (nBack) pythonInput.nBack = nBack;
-    if (stroop) pythonInput.stroop = stroop;
+    const { questionnaire, nBack, stroop, mouseTracking } = req.body;
+    const goNoGo = req.body.goNoGo || req.body.taskPerformance?.goNoGo || null;
+    let modelResult = req.body.modelResult || null;
 
-    // Run Python model
-    const modelResult = await runPythonAssessment(pythonInput);
-    console.log('🧠 Python returned:', modelResult);
+    // 🧠 If no modelResult provided, fallback to Python
+    if (!modelResult || Object.keys(modelResult).length === 0) {
+      console.log("⚙️ Running Python model (no modelResult provided by frontend)");
+      const pythonInput = {};
+      if (goNoGo) pythonInput.goNoGo = goNoGo;
+      if (nBack) pythonInput.nBack = nBack;
+      if (stroop) pythonInput.stroop = stroop;
 
-    if (!modelResult || modelResult.error) {
-      console.error('Python model failed:', modelResult?.error);
-      return res.status(500).json({ error: 'Python model failed' });
+      modelResult = await runPythonAssessment(pythonInput);
     }
 
-    // ✅ Safe assignment: use spread, no default 0s
+    // ✅ Sanitize and coerce numeric types
+    const cleanModelResult = {
+      composite_score: Number(modelResult?.composite_score ?? 0),
+      likelihood: modelResult?.likelihood || "UNKNOWN",
+      risk_level: modelResult?.risk_level || "unknown",
+      domain_scores: {
+        attention: Number(modelResult?.domain_scores?.attention ?? 0),
+        impulsivity: Number(modelResult?.domain_scores?.impulsivity ?? 0),
+        working_memory: Number(modelResult?.domain_scores?.working_memory ?? 0),
+      },
+      features: modelResult?.features || {},
+    };
+
+    // ✅ Create new assessment
     const assessment = new Assessment({
       userId: req.user.userId,
       questionnaire,
@@ -299,37 +313,32 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       nBack,
       stroop,
       mouseTracking,
-      modelResult: {
-        composite_score: modelResult.composite_score,
-        likelihood: modelResult.likelihood,
-        risk_level: modelResult.risk_level,
-        domain_scores: modelResult.domain_scores || {},
-        features: modelResult.features || {},
-      },
+      modelResult: cleanModelResult,
       overallResult: {
-        finalClassification: modelResult.likelihood,
-        confidence: modelResult.composite_score,
+        finalClassification: cleanModelResult.likelihood,
+        confidence: cleanModelResult.composite_score,
         recommendations: [
-          `Attention Score: ${modelResult.domain_scores?.attention ?? 0}`,
-          `Impulsivity Score: ${modelResult.domain_scores?.impulsivity ?? 0}`,
-          `Working Memory Score: ${modelResult.domain_scores?.working_memory ?? 0}`,
+          `Attention Score: ${cleanModelResult.domain_scores.attention}`,
+          `Impulsivity Score: ${cleanModelResult.domain_scores.impulsivity}`,
+          `Working Memory Score: ${cleanModelResult.domain_scores.working_memory}`,
         ],
       },
     });
 
-    await assessment.save();
-
+    const saved = await assessment.save();
     await User.findByIdAndUpdate(req.user.userId, {
-      $push: { assessments: assessment._id },
+      $push: { assessments: saved._id },
     });
+
+    console.log("✅ Saved Assessment:", saved.modelResult);
 
     res.status(201).json({
-      message: '✅ Assessment saved successfully',
-      modelResult,
-      assessment,
+      message: "✅ Assessment saved successfully",
+      modelResult: cleanModelResult,
+      assessment: saved,
     });
   } catch (error) {
-    console.error('❌ Error saving assessment:', error);
+    console.error("❌ Error saving assessment:", error);
     res.status(500).json({ error: error.message });
   }
 });
