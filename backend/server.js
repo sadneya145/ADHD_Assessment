@@ -273,28 +273,176 @@ app.post('/api/auth/google', async (req, res) => {
 
 // ==================== ASSESSMENT ROUTES ====================
 const runPythonAssessment = require('./runGames');
+// app.post('/api/assessments', authenticateToken, async (req, res) => {
+//   try {
+//     console.log("📥 Received assessment payload:", JSON.stringify(req.body, null, 2));
+
+//     const { questionnaire, mouseTracking } = req.body;
+//     const taskPerformance = req.body.taskPerformance || {};
+
+//     const goNoGo = taskPerformance.goNoGo || req.body.goNoGo || null;
+//     const nBack = taskPerformance.nBack || req.body.nBack || null;
+//     const stroop = taskPerformance.stroop || req.body.stroop || null;
+
+//     let modelResult = req.body.modelResult || null;
+
+//     if (!modelResult || Object.keys(modelResult).length === 0) {
+//       console.log("⚙️ Running Python model (no modelResult provided)");
+//       const pythonInput = {};
+//       if (goNoGo) pythonInput.goNoGo = goNoGo;
+//       if (nBack) pythonInput.nBack = nBack;
+//       if (stroop) pythonInput.stroop = stroop;
+//       modelResult = await runPythonAssessment(pythonInput);
+//     }
+
+//     const cleanModelResult = {
+//       composite_score: Number(modelResult?.composite_score ?? 0),
+//       likelihood: modelResult?.likelihood || "UNKNOWN",
+//       risk_level: modelResult?.risk_level || "unknown",
+//       domain_scores: {
+//         attention: Number(modelResult?.domain_scores?.attention ?? 0),
+//         impulsivity: Number(modelResult?.domain_scores?.impulsivity ?? 0),
+//         working_memory: Number(modelResult?.domain_scores?.working_memory ?? 0),
+//       },
+//       features: modelResult?.features || {},
+//     };
+
+//     console.log("🎮 Parsed task data:", { goNoGo, nBack, stroop, mouseTracking, modelResult: cleanModelResult });
+
+//     const assessment = new Assessment({
+//       userId: req.user.userId,
+//       questionnaire,
+//       goNoGo,
+//       nBack,
+//       stroop,
+//       mouseTracking,
+//       modelResult: cleanModelResult,
+//       overallResult: {
+//         finalClassification: cleanModelResult.likelihood,
+//         confidence: cleanModelResult.composite_score,
+//         recommendations: [
+//           `Attention Score: ${cleanModelResult.domain_scores.attention}`,
+//           `Impulsivity Score: ${cleanModelResult.domain_scores.impulsivity}`,
+//           `Working Memory Score: ${cleanModelResult.domain_scores.working_memory}`,
+//         ],
+//       },
+//     });
+
+//     const saved = await assessment.save();
+//     await User.findByIdAndUpdate(req.user.userId, { $push: { assessments: saved._id } });
+
+//     console.log("✅ Saved Assessment:", saved.modelResult);
+//     res.status(201).json({ message: "✅ Assessment saved successfully", assessment: saved });
+//   } catch (error) {
+//     console.error("❌ Error saving assessment:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// });
+
+// app.get('/api/analysis/latest', authenticateToken, async (req, res) => {
+//   try {
+//     // Fetch the latest assessment that has a modelResult
+//     const result = await Assessment.findOne({
+//       userId: req.user.userId,
+//       modelResult: {$exists: true, $ne: {}}, // only with modelResult
+//     })
+//       .sort({createdAt: -1}) // newest first
+//       .lean();
+
+//     if (!result) {
+//       return res
+//         .status(404)
+//         .json({error: 'No assessments with model results found'});
+//     }
+
+//     // Extract domain scores safely
+//     const modelResult = result.modelResult || {};
+
+//     const domain_scores = {
+//       attention: Number(modelResult.domain_scores?.attention ?? 0),
+//       impulsivity: Number(modelResult.domain_scores?.impulsivity ?? 0),
+//       working_memory: Number(modelResult.domain_scores?.working_memory ?? 0),
+//     };
+
+//     // Explanations / recommendations
+//     const explanations = {
+//       attention: `Attention Score: ${domain_scores.attention}`,
+//       impulsivity: `Impulsivity Score: ${domain_scores.impulsivity}`,
+//       working_memory: `Working Memory Score: ${domain_scores.working_memory}`,
+//     };
+
+//     // Composite score and likelihood
+//     const composite_score = Number(modelResult.composite_score ?? 0);
+//     const likelihood = modelResult.likelihood ?? 'Unknown';
+//     const risk_level = (likelihood ?? 'unknown').toLowerCase();
+
+//     // Final response
+//     const response = {
+//       composite_score,
+//       likelihood,
+//       risk_level,
+//       domain_scores,
+//       explanations,
+//     };
+
+//     console.log('Returning latest assessment:', response); // optional debug
+//     res.json(response);
+//   } catch (err) {
+//     console.error('Error fetching latest assessment:', err);
+//     res.status(500).json({error: 'Server error'});
+//   }
+// });
+
+// ==================== FIXED ASSESSMENT ROUTE ====================
 app.post('/api/assessments', authenticateToken, async (req, res) => {
   try {
     console.log("📥 Received assessment payload:", JSON.stringify(req.body, null, 2));
 
-    const { questionnaire, mouseTracking } = req.body;
+    // Handle both old format (direct task data) and new format (taskPerformance wrapper)
     const taskPerformance = req.body.taskPerformance || {};
-
+    
+    // Extract task data - check both locations
     const goNoGo = taskPerformance.goNoGo || req.body.goNoGo || null;
     const nBack = taskPerformance.nBack || req.body.nBack || null;
     const stroop = taskPerformance.stroop || req.body.stroop || null;
-
+    
+    // Extract other data
+    const questionnaire = req.body.questionnaire || null;
+    const mouseTracking = req.body.mouseTracking || null;
     let modelResult = req.body.modelResult || null;
 
+    // Validate that we have at least some data
+    if (!goNoGo && !nBack && !stroop && !questionnaire && !mouseTracking && !modelResult) {
+      return res.status(400).json({ 
+        error: 'No assessment data provided',
+        received: Object.keys(req.body)
+      });
+    }
+
+    // If no modelResult provided, run Python assessment
     if (!modelResult || Object.keys(modelResult).length === 0) {
       console.log("⚙️ Running Python model (no modelResult provided)");
       const pythonInput = {};
       if (goNoGo) pythonInput.goNoGo = goNoGo;
       if (nBack) pythonInput.nBack = nBack;
       if (stroop) pythonInput.stroop = stroop;
-      modelResult = await runPythonAssessment(pythonInput);
+      
+      try {
+        modelResult = await runPythonAssessment(pythonInput);
+      } catch (err) {
+        console.error("❌ Python assessment failed:", err);
+        // Create fallback modelResult
+        modelResult = {
+          composite_score: 0,
+          likelihood: "UNKNOWN",
+          risk_level: "unknown",
+          domain_scores: { attention: 0, impulsivity: 0, working_memory: 0 },
+          features: {}
+        };
+      }
     }
 
+    // Clean and validate modelResult
     const cleanModelResult = {
       composite_score: Number(modelResult?.composite_score ?? 0),
       likelihood: modelResult?.likelihood || "UNKNOWN",
@@ -307,15 +455,23 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       features: modelResult?.features || {},
     };
 
-    console.log("🎮 Parsed task data:", { goNoGo, nBack, stroop, mouseTracking, modelResult: cleanModelResult });
+    console.log("🎮 Parsed task data:", { 
+      goNoGo: goNoGo ? 'present' : 'missing',
+      nBack: nBack ? 'present' : 'missing',
+      stroop: stroop ? 'present' : 'missing',
+      mouseTracking: mouseTracking ? 'present' : 'missing',
+      questionnaire: questionnaire ? 'present' : 'missing',
+      modelResult: cleanModelResult 
+    });
 
+    // Create assessment document
     const assessment = new Assessment({
       userId: req.user.userId,
-      questionnaire,
-      goNoGo,
-      nBack,
-      stroop,
-      mouseTracking,
+      questionnaire: questionnaire,
+      goNoGo: goNoGo,
+      nBack: nBack,
+      stroop: stroop,
+      mouseTracking: mouseTracking,
       modelResult: cleanModelResult,
       overallResult: {
         finalClassification: cleanModelResult.likelihood,
@@ -329,67 +485,51 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
     });
 
     const saved = await assessment.save();
-    await User.findByIdAndUpdate(req.user.userId, { $push: { assessments: saved._id } });
+    
+    // Update user's assessment list
+    await User.findByIdAndUpdate(
+      req.user.userId, 
+      { $push: { assessments: saved._id } }
+    );
 
-    console.log("✅ Saved Assessment:", saved.modelResult);
-    res.status(201).json({ message: "✅ Assessment saved successfully", assessment: saved });
+    // Detailed logging for verification
+    console.log("✅ Saved Assessment:", {
+      id: saved._id,
+      modelResult: {
+        composite_score: saved.modelResult?.composite_score,
+        likelihood: saved.modelResult?.likelihood,
+        risk_level: saved.modelResult?.risk_level,
+        domain_scores: saved.modelResult?.domain_scores
+      },
+      taskData: {
+        goNoGo: saved.goNoGo ? {
+          hits: saved.goNoGo.hits,
+          misses: saved.goNoGo.misses,
+          avgReactionTime: saved.goNoGo.avgReactionTime
+        } : null,
+        nBack: saved.nBack ? {
+          hits: saved.nBack.hits,
+          nLevel: saved.nBack.nLevel
+        } : null,
+        stroop: saved.stroop ? {
+          hits: saved.stroop.hits,
+          errors: saved.stroop.errors
+        } : null
+      }
+    });
+
+    res.status(201).json({ 
+      message: "✅ Assessment saved successfully", 
+      assessment: saved 
+    });
+
   } catch (error) {
     console.error("❌ Error saving assessment:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/analysis/latest', authenticateToken, async (req, res) => {
-  try {
-    // Fetch the latest assessment that has a modelResult
-    const result = await Assessment.findOne({
-      userId: req.user.userId,
-      modelResult: {$exists: true, $ne: {}}, // only with modelResult
-    })
-      .sort({createdAt: -1}) // newest first
-      .lean();
-
-    if (!result) {
-      return res
-        .status(404)
-        .json({error: 'No assessments with model results found'});
-    }
-
-    // Extract domain scores safely
-    const modelResult = result.modelResult || {};
-
-    const domain_scores = {
-      attention: Number(modelResult.domain_scores?.attention ?? 0),
-      impulsivity: Number(modelResult.domain_scores?.impulsivity ?? 0),
-      working_memory: Number(modelResult.domain_scores?.working_memory ?? 0),
-    };
-
-    // Explanations / recommendations
-    const explanations = {
-      attention: `Attention Score: ${domain_scores.attention}`,
-      impulsivity: `Impulsivity Score: ${domain_scores.impulsivity}`,
-      working_memory: `Working Memory Score: ${domain_scores.working_memory}`,
-    };
-
-    // Composite score and likelihood
-    const composite_score = Number(modelResult.composite_score ?? 0);
-    const likelihood = modelResult.likelihood ?? 'Unknown';
-    const risk_level = (likelihood ?? 'unknown').toLowerCase();
-
-    // Final response
-    const response = {
-      composite_score,
-      likelihood,
-      risk_level,
-      domain_scores,
-      explanations,
-    };
-
-    console.log('Returning latest assessment:', response); // optional debug
-    res.json(response);
-  } catch (err) {
-    console.error('Error fetching latest assessment:', err);
-    res.status(500).json({error: 'Server error'});
+    console.error("Stack trace:", error.stack);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.stack 
+    });
   }
 });
 
