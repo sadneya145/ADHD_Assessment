@@ -120,7 +120,7 @@ export default function StroopTask() {
       );
 
       const data = await response.json();
-      if (response.ok) setTimeout(() => navigate("/results"), 1000);
+      if (response.ok) setTimeout(() => navigate("/home/results"), 1000);
       else setSaveMessage(`❌ Failed to save: ${data.error || response.status}`);
     } catch (error) {
       setSaveMessage(`❌ Network error: ${error.message}`);

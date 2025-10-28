@@ -9,36 +9,94 @@ export default function ResultsPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+// Replace your useEffect fetchResults function with this:
 
-  useEffect(() => {
-    const fetchResults = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setErrorMsg("❌ You must be logged in to view results.");
-          setLoading(false);
-          return;
-        }
+// Replace your useEffect fetchResults function with this:
 
-        const res = await fetch("https://adhd-assessment-backend.onrender.com/api/assessments", {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) throw new Error("Failed to fetch results");
-        const data = await res.json();
-        setResult(data);
-      } catch (err) {
-        setErrorMsg(err.message);
-      } finally {
+useEffect(() => {
+  const fetchResults = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setErrorMsg("❌ You must be logged in to view results.");
         setLoading(false);
+        return;
       }
-    };
 
-    fetchResults();
-  }, []);
+      const res = await fetch("https://adhd-assessment-backend.onrender.com/api/assessments", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch results");
+      const data = await res.json();
+      
+      // ✅ FIX: Extract the assessments array
+      console.log("📥 Received data:", data);
+      
+      if (!data.assessments || data.assessments.length === 0) {
+        setErrorMsg("No assessment results found. Please complete a test first!");
+        setLoading(false);
+        return;
+      }
+
+      // Get the latest assessment (first one, since they're sorted by completedAt desc)
+      const latestAssessment = data.assessments[0];
+      console.log("📊 Latest assessment:", latestAssessment);
+
+      // Extract modelResult which contains the scores
+      const modelResult = latestAssessment.modelResult;
+      
+      if (!modelResult) {
+        setErrorMsg("Assessment data is incomplete. Please try taking the test again.");
+        setLoading(false);
+        return;
+      }
+
+      // ✅ FIX: Convert probability scores (0-1) to percentage scores (0-100)
+      const convertToPercentage = (score) => {
+        const numScore = Number(score) || 0;
+        // If score is between 0-1, multiply by 100
+        return numScore <= 1 ? Math.round(numScore * 100) : Math.round(numScore);
+      };
+
+      const attentionScore = convertToPercentage(modelResult.domain_scores?.attention);
+      const impulsivityScore = convertToPercentage(modelResult.domain_scores?.impulsivity);
+      const workingMemoryScore = convertToPercentage(modelResult.domain_scores?.working_memory);
+      const compositeScore = convertToPercentage(modelResult.composite_score);
+
+      // Format the data for the UI (matching what the component expects)
+      const formattedResult = {
+        composite_score: compositeScore,
+        likelihood: modelResult.likelihood ?? "Unknown",
+        risk_level: modelResult.risk_level ?? "unknown",
+        domain_scores: {
+          attention: attentionScore,
+          impulsivity: impulsivityScore,
+          working_memory: workingMemoryScore,
+        },
+        explanations: {
+          attention: `Your attention control is performing at ${attentionScore}%`,
+          impulsivity: `Your impulse control is performing at ${impulsivityScore}%`,
+          working_memory: `Your working memory is performing at ${workingMemoryScore}%`,
+        }
+      };
+
+      console.log("✅ Formatted result:", formattedResult);
+      setResult(formattedResult);
+      
+    } catch (err) {
+      console.error("❌ Error:", err);
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchResults();
+}, []);
 
   if (loading) {
     return (

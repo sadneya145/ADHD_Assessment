@@ -1,39 +1,119 @@
-import { useState, useEffect } from 'react';
-import { ClipboardList } from 'lucide-react';
+import {useState, useEffect} from 'react';
+import {ClipboardList} from 'lucide-react';
 import './Form.css';
 import Header from '../Header/Header';
 import Footer from '../Footer/Footer';
 
 const QUESTIONS = [
-  { id: 'i1', text: 'Does your child often fail to pay close attention to details or make careless mistakes in schoolwork?', category: 'inattentive' },
-  { id: 'i2', text: 'Does your child have difficulty sustaining attention during tasks or play activities?', category: 'inattentive' },
-  { id: 'i3', text: 'Does your child seem not to listen when spoken to directly?', category: 'inattentive' },
-  { id: 'i4', text: 'Does your child often lose necessary items (books, toys, pencils, homework)?', category: 'inattentive' },
-  { id: 'i5', text: 'Does your child avoid or dislike tasks that require sustained mental effort (e.g., homework)?', category: 'inattentive' },
-  { id: 'i6', text: 'Is your child easily distracted by surrounding noises or activities?', category: 'inattentive' },
-  { id: 'i7', text: 'Does your child often forget daily activities (chores, instructions, assignments)?', category: 'inattentive' },
-  { id: 'h1', text: 'Does your child fidget with hands or feet, or squirm when seated?', category: 'hyperactive' },
-  { id: 'h2', text: 'Does your child leave their seat in situations when remaining seated is expected?', category: 'hyperactive' },
-  { id: 'h3', text: 'Does your child often run about or climb excessively in inappropriate situations?', category: 'hyperactive' },
-  { id: 'h4', text: 'Does your child have difficulty playing or engaging in activities quietly?', category: 'hyperactive' },
-  { id: 'h5', text: 'Does your child seem "on the go" or act as if "driven by a motor"?', category: 'hyperactive' },
-  { id: 'h6', text: 'Does your child talk excessively compared to peers?', category: 'hyperactive' },
-  { id: 'hi1', text: 'Does your child blurt out answers before a question has been completed?', category: 'both' },
-  { id: 'hi2', text: 'Does your child have difficulty waiting for their turn in group situations?', category: 'both' },
-  { id: 'hi3', text: 'Does your child interrupt or intrude on others (butting into conversations, games)?', category: 'both' },
-  { id: 'hi4', text: 'Does your child frequently switch from one unfinished activity to another?', category: 'both' },
-  { id: 'hi5', text: 'Does your child act without thinking about the consequences (e.g., dangerous play)?', category: 'both' },
-  { id: 'hi6', text: 'Does your child become frustrated easily when asked to sit still or focus?', category: 'both' },
-  { id: 'hi7', text: 'Does your child often act in socially inappropriate ways (blurting, grabbing, interrupting)?', category: 'both' }
+  {
+    id: 'i1',
+    text: 'Does your child often fail to pay close attention to details or make careless mistakes in schoolwork?',
+    category: 'inattentive',
+  },
+  {
+    id: 'i2',
+    text: 'Does your child have difficulty sustaining attention during tasks or play activities?',
+    category: 'inattentive',
+  },
+  {
+    id: 'i3',
+    text: 'Does your child seem not to listen when spoken to directly?',
+    category: 'inattentive',
+  },
+  {
+    id: 'i4',
+    text: 'Does your child often lose necessary items (books, toys, pencils, homework)?',
+    category: 'inattentive',
+  },
+  {
+    id: 'i5',
+    text: 'Does your child avoid or dislike tasks that require sustained mental effort (e.g., homework)?',
+    category: 'inattentive',
+  },
+  {
+    id: 'i6',
+    text: 'Is your child easily distracted by surrounding noises or activities?',
+    category: 'inattentive',
+  },
+  {
+    id: 'i7',
+    text: 'Does your child often forget daily activities (chores, instructions, assignments)?',
+    category: 'inattentive',
+  },
+  {
+    id: 'h1',
+    text: 'Does your child fidget with hands or feet, or squirm when seated?',
+    category: 'hyperactive',
+  },
+  {
+    id: 'h2',
+    text: 'Does your child leave their seat in situations when remaining seated is expected?',
+    category: 'hyperactive',
+  },
+  {
+    id: 'h3',
+    text: 'Does your child often run about or climb excessively in inappropriate situations?',
+    category: 'hyperactive',
+  },
+  {
+    id: 'h4',
+    text: 'Does your child have difficulty playing or engaging in activities quietly?',
+    category: 'hyperactive',
+  },
+  {
+    id: 'h5',
+    text: 'Does your child seem "on the go" or act as if "driven by a motor"?',
+    category: 'hyperactive',
+  },
+  {
+    id: 'h6',
+    text: 'Does your child talk excessively compared to peers?',
+    category: 'hyperactive',
+  },
+  {
+    id: 'hi1',
+    text: 'Does your child blurt out answers before a question has been completed?',
+    category: 'both',
+  },
+  {
+    id: 'hi2',
+    text: 'Does your child have difficulty waiting for their turn in group situations?',
+    category: 'both',
+  },
+  {
+    id: 'hi3',
+    text: 'Does your child interrupt or intrude on others (butting into conversations, games)?',
+    category: 'both',
+  },
+  {
+    id: 'hi4',
+    text: 'Does your child frequently switch from one unfinished activity to another?',
+    category: 'both',
+  },
+  {
+    id: 'hi5',
+    text: 'Does your child act without thinking about the consequences (e.g., dangerous play)?',
+    category: 'both',
+  },
+  {
+    id: 'hi6',
+    text: 'Does your child become frustrated easily when asked to sit still or focus?',
+    category: 'both',
+  },
+  {
+    id: 'hi7',
+    text: 'Does your child often act in socially inappropriate ways (blurting, grabbing, interrupting)?',
+    category: 'both',
+  },
 ];
 
 const RESPONSE_OPTIONS = [
-  { value: 'yes', label: 'Yes' },
-  { value: 'no', label: 'No' },
-  { value: 'cannot-answer', label: 'Cannot Answer' }
+  {value: 'yes', label: 'Yes'},
+  {value: 'no', label: 'No'},
+  {value: 'cannot-answer', label: 'Cannot Answer'},
 ];
 
-export default function BehavioralQuestionnaire({ onComplete }) {
+export default function BehavioralQuestionnaire({onComplete}) {
   const [responses, setResponses] = useState({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -52,7 +132,7 @@ export default function BehavioralQuestionnaire({ onComplete }) {
   }, []);
 
   const handleResponse = (questionId, value) => {
-    setResponses(prev => ({ ...prev, [questionId]: value }));
+    setResponses(prev => ({...prev, [questionId]: value}));
   };
 
   const calculateScores = () => {
@@ -71,26 +151,41 @@ export default function BehavioralQuestionnaire({ onComplete }) {
       }
     });
 
-    return { inattentiveScore, hyperactiveScore };
+    return {inattentiveScore, hyperactiveScore};
   };
 
   const getClassification = (inattentiveScore, hyperactiveScore) => {
     const inattentiveThreshold = 5;
     const hyperactiveThreshold = 6;
 
-    if (inattentiveScore < inattentiveThreshold && hyperactiveScore < hyperactiveThreshold) return 'No ADHD';
-    if (inattentiveScore >= inattentiveThreshold && hyperactiveScore < hyperactiveThreshold) return 'Inattentive ADHD';
-    if (inattentiveScore < inattentiveThreshold && hyperactiveScore >= hyperactiveThreshold) return 'Hyperactive/Impulsive ADHD';
+    if (
+      inattentiveScore < inattentiveThreshold &&
+      hyperactiveScore < hyperactiveThreshold
+    )
+      return 'No ADHD';
+    if (
+      inattentiveScore >= inattentiveThreshold &&
+      hyperactiveScore < hyperactiveThreshold
+    )
+      return 'Inattentive ADHD';
+    if (
+      inattentiveScore < inattentiveThreshold &&
+      hyperactiveScore >= hyperactiveThreshold
+    )
+      return 'Hyperactive/Impulsive ADHD';
     return 'Combined ADHD';
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
 
-    const { inattentiveScore, hyperactiveScore } = calculateScores();
-    const classification = getClassification(inattentiveScore, hyperactiveScore);
+    const {inattentiveScore, hyperactiveScore} = calculateScores();
+    const classification = getClassification(
+      inattentiveScore,
+      hyperactiveScore
+    );
 
     const questionnaireResults = {
       inattentiveScore,
@@ -100,25 +195,32 @@ export default function BehavioralQuestionnaire({ onComplete }) {
         questionId: q.id,
         question: q.text,
         response: responses[q.id] || 'not-answered',
-        category: q.category
-      }))
+        category: q.category,
+      })),
     };
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('https://adhd-assessment-backend.onrender.com/api/assessments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ questionnaire: questionnaireResults })
-      });
+      const res = await fetch(
+        'https://adhd-assessment-backend.onrender.com/api/assessments',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({questionnaire: questionnaireResults}),
+        }
+      );
 
       if (!res.ok) throw new Error('Failed to save assessment');
       const data = await res.json();
       setMessage('✅ Assessment saved successfully');
-      onComplete(data.assessment);
+
+      // ✅ Safe check before calling
+      if (typeof onComplete === 'function') {
+        onComplete(data.assessment);
+      }
     } catch (err) {
       console.error(err);
       setMessage('❌ Failed to save assessment. Please try again.');
@@ -141,22 +243,26 @@ export default function BehavioralQuestionnaire({ onComplete }) {
             </div>
             <div>
               <h2 className="bq-title">ADHD Parent Questionnaire</h2>
-              <p className="bq-subtitle">20 Questions - Preliminary Screening</p>
+              <p className="bq-subtitle">
+                20 Questions - Preliminary Screening
+              </p>
             </div>
           </div>
 
           <p className="bq-intro">
-            Please answer each question based on your child's behavior over the past 6 months.
-            This covers school, home, and social situations.
+            Please answer each question based on your child's behavior over the
+            past 6 months. This covers school, home, and social situations.
           </p>
 
           <div className="bq-progress">
             <div className="progress-info">
               <span>Progress</span>
-              <span className="progress-count">{Object.keys(responses).length} / {QUESTIONS.length}</span>
+              <span className="progress-count">
+                {Object.keys(responses).length} / {QUESTIONS.length}
+              </span>
             </div>
             <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${progress}%` }} />
+              <div className="progress-fill" style={{width: `${progress}%`}} />
             </div>
           </div>
 
@@ -177,7 +283,9 @@ export default function BehavioralQuestionnaire({ onComplete }) {
                       key={option.value}
                       type="button"
                       onClick={() => handleResponse(q.id, option.value)}
-                      className={`option-btn ${responses[q.id] === option.value ? option.value : ''}`}
+                      className={`option-btn ${
+                        responses[q.id] === option.value ? option.value : ''
+                      }`}
                     >
                       {option.label}
                     </button>
@@ -187,15 +295,25 @@ export default function BehavioralQuestionnaire({ onComplete }) {
             ))}
 
             <div className="bq-note">
-              <p><strong>Note:</strong> This questionnaire is a screening tool only. Professional evaluation is required for accurate diagnosis.</p>
+              <p>
+                <strong>Note:</strong> This questionnaire is a screening tool
+                only. Professional evaluation is required for accurate
+                diagnosis.
+              </p>
             </div>
 
-            <button type="submit" disabled={!allAnswered || loading} className={`submit-btn ${!allAnswered ? 'disabled' : ''}`}>
+            <button
+              type="submit"
+              disabled={!allAnswered || loading}
+              className={`submit-btn ${!allAnswered ? 'disabled' : ''}`}
+            >
               {loading
                 ? 'Saving...'
                 : allAnswered
-                  ? 'Complete Assessment & View Results'
-                  : `Please answer all questions (${QUESTIONS.length - Object.keys(responses).length} remaining)`}
+                ? 'Complete Assessment & View Results'
+                : `Please answer all questions (${
+                    QUESTIONS.length - Object.keys(responses).length
+                  } remaining)`}
             </button>
 
             {message && <p className="status-msg">{message}</p>}
