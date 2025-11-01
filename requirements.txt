@@ -1,0 +1,29 @@
+# ========================================
+# ADHD Video Analysis - Clean Requirements
+# ========================================
+
+# Core Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.0
+python-multipart==0.0.9
+
+# Video Processing (CRITICAL)
+opencv-python-headless==4.9.0.80
+mediapipe==0.10.9
+
+# Machine Learning
+numpy==1.26.4
+scikit-learn==1.4.0
+joblib==1.3.2
+
+# Data Processing
+pandas==2.2.0
+
+# Async & File Handling
+aiofiles==23.2.1
+python-dotenv==1.0.1
+
+# HTTP Client (if needed)
+httpx==0.26.0
+requests==2.31.0
