@@ -6,10 +6,11 @@ Higher scores = Better performance (Lower ADHD likelihood)
 import sys
 import json
 
+
 class ADHDAssessmentModel:
     """Rule-based ADHD assessment using cognitive test results"""
     
-    def _init_(self):
+    def __init__(self):
         self.weights = {
             'attention': 0.35,
             'impulsivity': 0.40,
@@ -64,7 +65,7 @@ class ADHDAssessmentModel:
     
     def calculate_attention_score(self, features):
         """Calculate attention score (0-100) - Higher is better"""
-        score = 100  # Start at maximum
+        score = 100
         
         if features.get('stroop_accuracy') is not None:
             acc = features['stroop_accuracy']
@@ -112,7 +113,7 @@ class ADHDAssessmentModel:
     
     def calculate_impulsivity_score(self, features):
         """Calculate impulse control score (0-100) - Higher is better"""
-        score = 100  # Start at maximum
+        score = 100
         
         if features.get('nback_fa_rate') is not None:
             fa_rate = features['nback_fa_rate']
@@ -148,7 +149,7 @@ class ADHDAssessmentModel:
     
     def calculate_working_memory_score(self, features):
         """Calculate working memory score (0-100) - Higher is better"""
-        score = 100  # Start at maximum
+        score = 100
         
         if features.get('nback_accuracy') is not None:
             acc = features['nback_accuracy']
@@ -259,5 +260,6 @@ def main():
         print(json.dumps({"error": f"Unexpected error: {str(e)}"}))
 
 
-if __name__ == "_main_":
+
+if __name__ == "__main__":
     main()
