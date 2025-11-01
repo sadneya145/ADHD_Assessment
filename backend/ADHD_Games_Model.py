@@ -1,6 +1,7 @@
 """
-ADHD Assessment Model - Final Production Version
-Higher scores = Better performance (Lower ADHD likelihood)
+ADHD Assessment Model - Final Production Version (Inverted Composite)
+Higher domain scores = Better performance
+Higher composite score = Higher ADHD likelihood (0 = Non-ADHD, 100 = ADHD)
 """
 
 import sys
@@ -187,23 +188,27 @@ class ADHDAssessmentModel:
         impulsivity_score = self.calculate_impulsivity_score(features)
         working_memory_score = self.calculate_working_memory_score(features)
         
-        composite_score = (
+        # Normal composite (higher = better)
+        normal_composite = (
             attention_score * self.weights['attention'] +
             impulsivity_score * self.weights['impulsivity'] +
             working_memory_score * self.weights['working_memory']
         )
         
-        # Inverted thresholds (low score = high ADHD risk)
-        if composite_score < 30:
+        # Invert so higher = higher ADHD likelihood
+        composite_score = round(100 - normal_composite, 2)
+        
+        # Interpret thresholds (now high = ADHD)
+        if composite_score > 75:
             likelihood = 'High'
             risk_level = 4
-        elif composite_score < 45:
+        elif composite_score > 60:
             likelihood = 'Moderate-High'
             risk_level = 3
-        elif composite_score < 60:
+        elif composite_score > 45:
             likelihood = 'Moderate'
             risk_level = 2
-        elif composite_score < 75:
+        elif composite_score > 30:
             likelihood = 'Low-Moderate'
             risk_level = 1
         else:
@@ -211,7 +216,7 @@ class ADHDAssessmentModel:
             risk_level = 0
         
         return {
-            'composite_score': round(composite_score, 2),
+            'composite_score': composite_score,
             'likelihood': likelihood,
             'risk_level': risk_level,
             'domain_scores': {
@@ -258,7 +263,6 @@ def main():
         print(json.dumps({"error": f"Invalid JSON input: {str(e)}"}))
     except Exception as e:
         print(json.dumps({"error": f"Unexpected error: {str(e)}"}))
-
 
 
 if __name__ == "__main__":
