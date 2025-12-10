@@ -410,6 +410,7 @@ const runPythonAssessment = require('./runGames');
 
 
 // ==================== FIXED ASSESSMENT ROUTE ====================
+// ==================== FIXED ASSESSMENT ROUTE ====================
 app.post('/api/assessments', authenticateToken, async (req, res) => {
   try {
     console.log("📥 Received assessment payload:", JSON.stringify(req.body, null, 2));
@@ -425,6 +426,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
     // Extract other data
     const questionnaire = req.body.questionnaire || null;
     const mouseTracking = req.body.mouseTracking || null;
+    const age = req.body.age || 12; // Default age if not provided
     let modelResult = req.body.modelResult || null;
 
     // Validate that we have at least some data
@@ -435,25 +437,35 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       });
     }
 
-    // If no modelResult provided, run Python assessment
+    // If no modelResult provided AND we have task data, run Python assessment
     if (!modelResult || Object.keys(modelResult).length === 0) {
-      console.log("⚙️ Running Python model (no modelResult provided)");
-      const pythonInput = {};
-      if (goNoGo) pythonInput.goNoGo = goNoGo;
-      if (nBack) pythonInput.nBack = nBack;
-      if (stroop) pythonInput.stroop = stroop;
+      // Check if we have enough data for Python model
+      const hasTaskData = goNoGo || nBack || stroop;
       
-      try {
-        modelResult = await runPythonAssessment(pythonInput);
-      } catch (err) {
-        console.error("❌ Python assessment failed:", err);
-        // Create fallback modelResult
+      if (hasTaskData) {
+        console.log("⚙️ Running Python model");
+        const pythonInput = { age: age };
+        if (goNoGo) pythonInput.goNoGo = goNoGo;
+        if (nBack) pythonInput.nBack = nBack;
+        if (stroop) pythonInput.stroop = stroop;
+        
+        try {
+          modelResult = await runPythonAssessment(pythonInput);
+          console.log("✅ Python model result:", modelResult);
+        } catch (err) {
+          console.error("❌ Python assessment failed:", err);
+          // Create a more informative fallback
+          modelResult = createFallbackModelResult(goNoGo, nBack, stroop);
+        }
+      } else {
+        // No task data, create minimal result
         modelResult = {
           composite_score: 0,
-          likelihood: "UNKNOWN",
+          likelihood: "INCOMPLETE",
           risk_level: "unknown",
           domain_scores: { attention: 0, impulsivity: 0, working_memory: 0 },
-          features: {}
+          features: {},
+          note: "Insufficient task data for assessment"
         };
       }
     }
@@ -463,6 +475,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       composite_score: Number(modelResult?.composite_score ?? 0),
       likelihood: modelResult?.likelihood || "UNKNOWN",
       risk_level: modelResult?.risk_level || "unknown",
+      age_group: modelResult?.age_group || null,
       domain_scores: {
         attention: Number(modelResult?.domain_scores?.attention ?? 0),
         impulsivity: Number(modelResult?.domain_scores?.impulsivity ?? 0),
@@ -471,14 +484,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       features: modelResult?.features || {},
     };
 
-    console.log("🎮 Parsed task data:", { 
-      goNoGo: goNoGo ? 'present' : 'missing',
-      nBack: nBack ? 'present' : 'missing',
-      stroop: stroop ? 'present' : 'missing',
-      mouseTracking: mouseTracking ? 'present' : 'missing',
-      questionnaire: questionnaire ? 'present' : 'missing',
-      modelResult: cleanModelResult 
-    });
+    console.log("🎮 Final model result:", cleanModelResult);
 
     // Create assessment document
     const assessment = new Assessment({
@@ -492,11 +498,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       overallResult: {
         finalClassification: cleanModelResult.likelihood,
         confidence: cleanModelResult.composite_score,
-        recommendations: [
-          `Attention Score: ${cleanModelResult.domain_scores.attention}`,
-          `Impulsivity Score: ${cleanModelResult.domain_scores.impulsivity}`,
-          `Working Memory Score: ${cleanModelResult.domain_scores.working_memory}`,
-        ],
+        recommendations: generateRecommendationsFromScores(cleanModelResult),
       },
     });
 
@@ -508,31 +510,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       { $push: { assessments: saved._id } }
     );
 
-    // Detailed logging for verification
-    console.log("✅ Saved Assessment:", {
-      id: saved._id,
-      modelResult: {
-        composite_score: saved.modelResult?.composite_score,
-        likelihood: saved.modelResult?.likelihood,
-        risk_level: saved.modelResult?.risk_level,
-        domain_scores: saved.modelResult?.domain_scores
-      },
-      taskData: {
-        goNoGo: saved.goNoGo ? {
-          hits: saved.goNoGo.hits,
-          misses: saved.goNoGo.misses,
-          avgReactionTime: saved.goNoGo.avgReactionTime
-        } : null,
-        nBack: saved.nBack ? {
-          hits: saved.nBack.hits,
-          nLevel: saved.nBack.nLevel
-        } : null,
-        stroop: saved.stroop ? {
-          hits: saved.stroop.hits,
-          errors: saved.stroop.errors
-        } : null
-      }
-    });
+    console.log("✅ Assessment saved:", saved._id);
 
     res.status(201).json({ 
       message: "✅ Assessment saved successfully", 
@@ -549,6 +527,93 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
   }
 });
 
+// Helper function to create fallback results when Python fails
+function createFallbackModelResult(goNoGo, nBack, stroop) {
+  let attention = 0;
+  let impulsivity = 0;
+  let workingMemory = 0;
+  let count = 0;
+
+  // Simple heuristic calculations
+  if (stroop) {
+    const stroopAcc = (stroop.score / stroop.totalRounds) * 100;
+    attention = stroopAcc;
+    workingMemory = stroopAcc * 0.8;
+    count++;
+  }
+
+  if (goNoGo) {
+    const total = goNoGo.hits + goNoGo.misses + goNoGo.falseAlarms;
+    if (total > 0) {
+      const gonogoAcc = (goNoGo.hits / total) * 100;
+      attention = count > 0 ? (attention + gonogoAcc) / 2 : gonogoAcc;
+      const falseAlarmRate = (goNoGo.falseAlarms / total) * 100;
+      impulsivity = 100 - falseAlarmRate;
+      count++;
+    }
+  }
+
+  if (nBack) {
+    const total = nBack.hits + nBack.misses;
+    if (total > 0) {
+      const nbackAcc = (nBack.hits / total) * 100;
+      workingMemory = count > 0 ? (workingMemory + nbackAcc) / 2 : nbackAcc;
+      const nbackFalseAlarmRate = nBack.falseAlarms ? 
+        (nBack.falseAlarms / (nBack.falseAlarms + (nBack.correctRejections || 0))) * 100 : 0;
+      impulsivity = count > 0 ? (impulsivity + (100 - nbackFalseAlarmRate)) / 2 : (100 - nbackFalseAlarmRate);
+      count++;
+    }
+  }
+
+  const composite = 100 - ((attention + impulsivity + workingMemory) / 3);
+  
+  let likelihood = "Low";
+  let risk_level = "low";
+  if (composite > 60) {
+    likelihood = "High";
+    risk_level = "high";
+  } else if (composite > 45) {
+    likelihood = "Moderate";
+    risk_level = "moderate";
+  }
+
+  return {
+    composite_score: Math.round(composite * 100) / 100,
+    likelihood: likelihood,
+    risk_level: risk_level,
+    domain_scores: {
+      attention: Math.round(attention * 100) / 100,
+      impulsivity: Math.round(impulsivity * 100) / 100,
+      working_memory: Math.round(workingMemory * 100) / 100
+    },
+    features: {
+      note: "Calculated using fallback heuristics"
+    }
+  };
+}
+
+// Helper function to generate recommendations based on scores
+function generateRecommendationsFromScores(modelResult) {
+  const recommendations = [];
+  const { attention, impulsivity, working_memory } = modelResult.domain_scores;
+  
+  recommendations.push(`Attention Score: ${attention}%`);
+  recommendations.push(`Impulsivity Score: ${impulsivity}%`);
+  recommendations.push(`Working Memory Score: ${working_memory}%`);
+
+  if (modelResult.likelihood === "High") {
+    recommendations.push("Consider consulting with a healthcare professional for a comprehensive evaluation");
+    recommendations.push("Implement structured daily routines and organizational systems");
+  } else if (modelResult.likelihood === "Moderate" || modelResult.likelihood === "Moderate-High") {
+    recommendations.push("Monitor symptoms and consider professional consultation if they persist");
+    recommendations.push("Practice mindfulness and stress-reduction techniques");
+  } else {
+    recommendations.push("Continue maintaining healthy habits and routines");
+    recommendations.push("Regular check-ups with healthcare provider recommended");
+  }
+
+  return recommendations;
+}
 // Get User's Assessments
 app.get('/api/assessments', authenticateToken, async (req, res) => {
   try {
@@ -605,142 +670,142 @@ app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
   }
 });
 
-// // ==================== HELPER FUNCTIONS ====================
+// ==================== HELPER FUNCTIONS ====================
 
-// function analyzeMouseMovement(mouseData) {
-//   if (!mouseData || mouseData.length < 10) {
-//     return {
-//       adhd_type: 'Insufficient Data',
-//       confidence: 0,
-//       classifications: {},
-//     };
-//   }
+function analyzeMouseMovement(mouseData) {
+  if (!mouseData || mouseData.length < 10) {
+    return {
+      adhd_type: 'Insufficient Data',
+      confidence: 0,
+      classifications: {},
+    };
+  }
 
-//   // Calculate features
-//   const velocities = [];
-//   const accelerations = [];
-//   const directionChanges = [];
+  // Calculate features
+  const velocities = [];
+  const accelerations = [];
+  const directionChanges = [];
 
-//   for (let i = 1; i < mouseData.length; i++) {
-//     const dt = mouseData[i].time - mouseData[i - 1].time;
-//     if (dt === 0) continue;
+  for (let i = 1; i < mouseData.length; i++) {
+    const dt = mouseData[i].time - mouseData[i - 1].time;
+    if (dt === 0) continue;
 
-//     const dx = mouseData[i].x - mouseData[i - 1].x;
-//     const dy = mouseData[i].y - mouseData[i - 1].y;
-//     const velocity = Math.sqrt(dx * dx + dy * dy) / dt;
-//     velocities.push(velocity);
+    const dx = mouseData[i].x - mouseData[i - 1].x;
+    const dy = mouseData[i].y - mouseData[i - 1].y;
+    const velocity = Math.sqrt(dx * dx + dy * dy) / dt;
+    velocities.push(velocity);
 
-//     if (i > 1) {
-//       const prevVelocity = velocities[i - 2];
-//       const acceleration = Math.abs(velocity - prevVelocity) / dt;
-//       accelerations.push(acceleration);
+    if (i > 1) {
+      const prevVelocity = velocities[i - 2];
+      const acceleration = Math.abs(velocity - prevVelocity) / dt;
+      accelerations.push(acceleration);
 
-//       // Direction changes
-//       const prevDx = mouseData[i - 1].x - mouseData[i - 2].x;
-//       const prevDy = mouseData[i - 1].y - mouseData[i - 2].y;
-//       const dotProduct = dx * prevDx + dy * prevDy;
-//       const magnitude =
-//         Math.sqrt(dx * dx + dy * dy) *
-//         Math.sqrt(prevDx * prevDx + prevDy * prevDy);
-//       if (magnitude > 0) {
-//         const angle = Math.acos(dotProduct / magnitude);
-//         if (angle > Math.PI / 4) directionChanges.push(angle);
-//       }
-//     }
-//   }
+      // Direction changes
+      const prevDx = mouseData[i - 1].x - mouseData[i - 2].x;
+      const prevDy = mouseData[i - 1].y - mouseData[i - 2].y;
+      const dotProduct = dx * prevDx + dy * prevDy;
+      const magnitude =
+        Math.sqrt(dx * dx + dy * dy) *
+        Math.sqrt(prevDx * prevDx + prevDy * prevDy);
+      if (magnitude > 0) {
+        const angle = Math.acos(dotProduct / magnitude);
+        if (angle > Math.PI / 4) directionChanges.push(angle);
+      }
+    }
+  }
 
-//   const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
-//   const velocityStd = Math.sqrt(
-//     velocities.reduce((a, b) => a + Math.pow(b - avgVelocity, 2), 0) /
-//       velocities.length
-//   );
-//   const avgAcceleration =
-//     accelerations.length > 0
-//       ? accelerations.reduce((a, b) => a + b, 0) / accelerations.length
-//       : 0;
-//   const directionChangeCount = directionChanges.length;
+  const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
+  const velocityStd = Math.sqrt(
+    velocities.reduce((a, b) => a + Math.pow(b - avgVelocity, 2), 0) /
+      velocities.length
+  );
+  const avgAcceleration =
+    accelerations.length > 0
+      ? accelerations.reduce((a, b) => a + b, 0) / accelerations.length
+      : 0;
+  const directionChangeCount = directionChanges.length;
 
-//   // Classification logic
-//   let adhdType = 'No ADHD';
-//   let confidence = 0;
+  // Classification logic
+  let adhdType = 'No ADHD';
+  let confidence = 0;
 
-//   if (velocityStd > 5 && avgAcceleration > 0.5) {
-//     adhdType = 'Hyperactive ADHD';
-//     confidence = Math.min(85, 60 + velocityStd * 3 + avgAcceleration * 10);
-//   } else if (directionChangeCount > mouseData.length * 0.3) {
-//     adhdType = 'Inattentive ADHD';
-//     confidence = Math.min(
-//       80,
-//       55 + (directionChangeCount / mouseData.length) * 100
-//     );
-//   } else if (velocityStd > 3 && directionChangeCount > mouseData.length * 0.2) {
-//     adhdType = 'Combined ADHD';
-//     confidence = Math.min(
-//       82,
-//       58 + velocityStd * 2 + (directionChangeCount / mouseData.length) * 50
-//     );
-//   } else {
-//     confidence = Math.max(70, 90 - velocityStd * 2);
-//   }
+  if (velocityStd > 5 && avgAcceleration > 0.5) {
+    adhdType = 'Hyperactive ADHD';
+    confidence = Math.min(85, 60 + velocityStd * 3 + avgAcceleration * 10);
+  } else if (directionChangeCount > mouseData.length * 0.3) {
+    adhdType = 'Inattentive ADHD';
+    confidence = Math.min(
+      80,
+      55 + (directionChangeCount / mouseData.length) * 100
+    );
+  } else if (velocityStd > 3 && directionChangeCount > mouseData.length * 0.2) {
+    adhdType = 'Combined ADHD';
+    confidence = Math.min(
+      82,
+      58 + velocityStd * 2 + (directionChangeCount / mouseData.length) * 50
+    );
+  } else {
+    confidence = Math.max(70, 90 - velocityStd * 2);
+  }
 
-//   return {
-//     adhd_type: adhdType,
-//     confidence: parseFloat(confidence.toFixed(1)),
-//     classifications: {
-//       'Avg Velocity': avgVelocity.toFixed(2),
-//       'Velocity Std Dev': velocityStd.toFixed(2),
-//       'Avg Acceleration': avgAcceleration.toFixed(2),
-//       'Direction Changes': directionChangeCount,
-//     },
-//   };
-// }
+  return {
+    adhd_type: adhdType,
+    confidence: parseFloat(confidence.toFixed(1)),
+    classifications: {
+      'Avg Velocity': avgVelocity.toFixed(2),
+      'Velocity Std Dev': velocityStd.toFixed(2),
+      'Avg Acceleration': avgAcceleration.toFixed(2),
+      'Direction Changes': directionChangeCount,
+    },
+  };
+}
 
-// function calculateOverallResult(data) {
-//   const scores = [];
-//   let classifications = [];
+function calculateOverallResult(data) {
+  const scores = [];
+  let classifications = [];
 
-//   // Questionnaire
-//   if (data.questionnaire) {
-//     classifications.push(data.questionnaire.classification);
-//     const totalScore =
-//       data.questionnaire.inattentiveScore + data.questionnaire.hyperactiveScore;
-//     scores.push(totalScore > 10 ? 80 : 40);
-//   }
+  // Questionnaire
+  if (data.questionnaire) {
+    classifications.push(data.questionnaire.classification);
+    const totalScore =
+      data.questionnaire.inattentiveScore + data.questionnaire.hyperactiveScore;
+    scores.push(totalScore > 10 ? 80 : 40);
+  }
 
-//   // Go/No-Go
-//   if (data.goNoGo) {
-//     const accuracy =
-//       data.goNoGo.hits /
-//       (data.goNoGo.hits + data.goNoGo.misses + data.goNoGo.falseAlarms);
-//     scores.push(accuracy < 0.7 ? 70 : 30);
-//   }
+  // Go/No-Go
+  if (data.goNoGo) {
+    const accuracy =
+      data.goNoGo.hits /
+      (data.goNoGo.hits + data.goNoGo.misses + data.goNoGo.falseAlarms);
+    scores.push(accuracy < 0.7 ? 70 : 30);
+  }
 
-//   // N-Back
-//   if (data.nBack) {
-//     scores.push(data.nBack.accuracy < 60 ? 65 : 35);
-//   }
+  // N-Back
+  if (data.nBack) {
+    scores.push(data.nBack.accuracy < 60 ? 65 : 35);
+  }
 
-//   // Stroop
-//   if (data.stroop) {
-//     const stroopAccuracy = (data.stroop.score / data.stroop.totalRounds) * 100;
-//     scores.push(stroopAccuracy < 70 ? 70 : 30);
-//   }
+  // Stroop
+  if (data.stroop) {
+    const stroopAccuracy = (data.stroop.score / data.stroop.totalRounds) * 100;
+    scores.push(stroopAccuracy < 70 ? 70 : 30);
+  }
 
-//   // Mouse Tracking
-//   if (data.mouseTracking?.analysisResult) {
-//     classifications.push(data.mouseTracking.analysisResult.adhd_type);
-//     scores.push(data.mouseTracking.analysisResult.confidence);
-//   }
+  // Mouse Tracking
+  if (data.mouseTracking?.analysisResult) {
+    classifications.push(data.mouseTracking.analysisResult.adhd_type);
+    scores.push(data.mouseTracking.analysisResult.confidence);
+  }
 
-//   const avgConfidence = scores.reduce((a, b) => a + b, 0) / scores.length;
-//   const finalClassification = getMostCommonClassification(classifications);
+  const avgConfidence = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const finalClassification = getMostCommonClassification(classifications);
 
-//   return {
-//     finalClassification,
-//     confidence: parseFloat(avgConfidence.toFixed(1)),
-//     recommendations: generateRecommendations(finalClassification),
-//   };
-// }
+  return {
+    finalClassification,
+    confidence: parseFloat(avgConfidence.toFixed(1)),
+    recommendations: generateRecommendations(finalClassification),
+  };
+}
 
 function getMostCommonClassification(classifications) {
   const counts = {};
