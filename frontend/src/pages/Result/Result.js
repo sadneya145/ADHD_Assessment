@@ -1,102 +1,155 @@
-"use client";
-import React, { useEffect, useState } from "react";
-import Header from "../Header/Header";
-import Footer from "../Footer/Footer";
-import "./Result.css";
-import { AlertCircle, Brain, Eye, Zap, Download, CheckCircle, AlertTriangle, XCircle, Star, Target } from "lucide-react";
+'use client';
+import React, {useEffect, useState} from 'react';
+import Header from '../Header/Header';
+import Footer from '../Footer/Footer';
+import './Result.css';
+import {
+  AlertCircle,
+  Brain,
+  Eye,
+  Zap,
+  Download,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Star,
+  Target,
+} from 'lucide-react';
 
 export default function ResultsPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
-// Replace your useEffect fetchResults function with this:
-
-// Replace your useEffect fetchResults function with this:
-
-useEffect(() => {
-  const fetchResults = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setErrorMsg("❌ You must be logged in to view results.");
-        setLoading(false);
-        return;
-      }
-
-      const res = await fetch("https://adhd-assessment-backend.onrender.com/api/assessments", {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) throw new Error("Failed to fetch results");
-      const data = await res.json();
-      
-      // ✅ FIX: Extract the assessments array
-      console.log("📥 Received data:", data);
-      
-      if (!data.assessments || data.assessments.length === 0) {
-        setErrorMsg("No assessment results found. Please complete a test first!");
-        setLoading(false);
-        return;
-      }
-
-      // Get the latest assessment (first one, since they're sorted by completedAt desc)
-      const latestAssessment = data.assessments[0];
-      console.log("📊 Latest assessment:", latestAssessment);
-
-      // Extract modelResult which contains the scores
-      const modelResult = latestAssessment.modelResult;
-      
-      if (!modelResult) {
-        setErrorMsg("Assessment data is incomplete. Please try taking the test again.");
-        setLoading(false);
-        return;
-      }
-
-      // ✅ FIX: Convert probability scores (0-1) to percentage scores (0-100)
-      const convertToPercentage = (score) => {
-        const numScore = Number(score) || 0;
-        // If score is between 0-1, multiply by 100
-        return numScore <= 1 ? Math.round(numScore * 100) : Math.round(numScore);
-      };
-
-      const attentionScore = convertToPercentage(modelResult.domain_scores?.attention);
-      const impulsivityScore = convertToPercentage(modelResult.domain_scores?.impulsivity);
-      const workingMemoryScore = convertToPercentage(modelResult.domain_scores?.working_memory);
-      const compositeScore = convertToPercentage(modelResult.composite_score);
-
-      // Format the data for the UI (matching what the component expects)
-      const formattedResult = {
-        composite_score: compositeScore,
-        likelihood: modelResult.likelihood ?? "Unknown",
-        risk_level: modelResult.risk_level ?? "unknown",
-        domain_scores: {
-          attention: attentionScore,
-          impulsivity: impulsivityScore,
-          working_memory: workingMemoryScore,
-        },
-        explanations: {
-          attention: `Your attention control is performing at ${attentionScore}%`,
-          impulsivity: `Your impulse control is performing at ${impulsivityScore}%`,
-          working_memory: `Your working memory is performing at ${workingMemoryScore}%`,
+  const [errorMsg, setErrorMsg] = useState('');
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setErrorMsg('❌ You must be logged in to view results.');
+          setLoading(false);
+          return;
         }
-      };
 
-      console.log("✅ Formatted result:", formattedResult);
-      setResult(formattedResult);
-      
-    } catch (err) {
-      console.error("❌ Error:", err);
-      setErrorMsg(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+        // ✅ Check if specific assessment ID is provided in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const assessmentId = urlParams.get('id');
 
-  fetchResults();
-}, []);
+        console.log('🔍 Assessment ID from URL:', assessmentId);
+
+        let endpoint;
+        if (assessmentId) {
+          // Fetch specific assessment by ID
+          endpoint = `https://adhd-assessment-backend.onrender.com/api/assessments/${assessmentId}`;
+        } else {
+          // Fetch all assessments (will get latest)
+          endpoint =
+            'https://adhd-assessment-backend.onrender.com/api/assessments';
+        }
+
+        console.log('📡 Fetching from:', endpoint);
+
+        const res = await fetch(endpoint, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error(
+              "Assessment not found. It may have been deleted or you don't have access to it."
+            );
+          }
+          throw new Error('Failed to fetch results');
+        }
+
+        const data = await res.json();
+        console.log('📥 Received data:', data);
+
+        // ✅ Handle response based on whether we got a single assessment or array
+        let latestAssessment;
+        if (assessmentId) {
+          // Single assessment response: { assessment: {...} }
+          latestAssessment = data.assessment;
+          console.log('📊 Viewing specific assessment:', assessmentId);
+        } else {
+          // Array of assessments: { assessments: [...] }
+          if (!data.assessments || data.assessments.length === 0) {
+            setErrorMsg(
+              'No assessment results found. Please complete a test first!'
+            );
+            setLoading(false);
+            return;
+          }
+          latestAssessment = data.assessments[0];
+          console.log('📊 Viewing latest assessment');
+        }
+
+        console.log('📊 Assessment data:', latestAssessment);
+
+        // Extract modelResult which contains the scores
+        const modelResult = latestAssessment.modelResult;
+
+        if (!modelResult) {
+          setErrorMsg(
+            'Assessment data is incomplete. Please try taking the test again.'
+          );
+          setLoading(false);
+          return;
+        }
+
+        // ✅ Convert probability scores (0-1) to percentage scores (0-100)
+        const convertToPercentage = score => {
+          const numScore = Number(score) || 0;
+          // If score is between 0-1, multiply by 100
+          return numScore <= 1
+            ? Math.round(numScore * 100)
+            : Math.round(numScore);
+        };
+
+        const attentionScore = convertToPercentage(
+          modelResult.domain_scores?.attention
+        );
+        const impulsivityScore = convertToPercentage(
+          modelResult.domain_scores?.impulsivity
+        );
+        const workingMemoryScore = convertToPercentage(
+          modelResult.domain_scores?.working_memory
+        );
+        const compositeScore = convertToPercentage(modelResult.composite_score);
+
+        // Format the data for the UI (matching what the component expects)
+        const formattedResult = {
+          composite_score: compositeScore,
+          likelihood: modelResult.likelihood ?? 'Unknown',
+          risk_level: modelResult.risk_level ?? 'unknown',
+          age_group: modelResult.age_group,
+          completedAt: latestAssessment.completedAt,
+          domain_scores: {
+            attention: attentionScore,
+            impulsivity: impulsivityScore,
+            working_memory: workingMemoryScore,
+          },
+          explanations: {
+            attention: `Your attention control is performing at ${attentionScore}%`,
+            impulsivity: `Your impulse control is performing at ${impulsivityScore}%`,
+            working_memory: `Your working memory is performing at ${workingMemoryScore}%`,
+          },
+        };
+
+        console.log('✅ Formatted result:', formattedResult);
+        setResult(formattedResult);
+      } catch (err) {
+        console.error('❌ Error:', err);
+        setErrorMsg(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResults();
+  }, []);
 
   if (loading) {
     return (
@@ -142,7 +195,9 @@ useEffect(() => {
             <div className="error-state">
               <span className="no-results-icon">📋</span>
               <h2 className="error-title">No Results Yet</h2>
-              <p className="error-message">Please complete the tests first to see your results!</p>
+              <p className="error-message">
+                Please complete the tests first to see your results!
+              </p>
             </div>
           </div>
         </div>
@@ -152,8 +207,8 @@ useEffect(() => {
   }
 
   const compositeScore = result.composite_score ?? 0;
-  const likelihood = result.likelihood ?? "Unknown";
-  const riskLevel = (result.risk_level ?? "unknown").toLowerCase();
+  const likelihood = result.likelihood ?? 'Unknown';
+  const riskLevel = (result.risk_level ?? 'unknown').toLowerCase();
 
   const attentionScore = result.domain_scores?.attention ?? 0;
   const impulsivityScore = result.domain_scores?.impulsivity ?? 0;
@@ -161,33 +216,49 @@ useEffect(() => {
 
   const explanations = result.explanations || {};
 
-  const getRiskBadgeInfo = (risk) => {
+  const getRiskBadgeInfo = risk => {
     switch (risk) {
-      case "low":
-        return { icon: <CheckCircle size={24} />, bgColor: "#d4edda", textColor: "#155724" };
-      case "moderate":
-        return { icon: <AlertTriangle size={24} />, bgColor: "#fff3cd", textColor: "#856404" };
-      case "high":
-        return { icon: <XCircle size={24} />, bgColor: "#f8d7da", textColor: "#721c24" };
+      case 'low':
+        return {
+          icon: <CheckCircle size={24} />,
+          bgColor: '#d4edda',
+          textColor: '#155724',
+        };
+      case 'moderate':
+        return {
+          icon: <AlertTriangle size={24} />,
+          bgColor: '#fff3cd',
+          textColor: '#856404',
+        };
+      case 'high':
+        return {
+          icon: <XCircle size={24} />,
+          bgColor: '#f8d7da',
+          textColor: '#721c24',
+        };
       default:
-        return { icon: <AlertCircle size={24} />, bgColor: "#d1ecf1", textColor: "#0c5460" };
+        return {
+          icon: <AlertCircle size={24} />,
+          bgColor: '#d1ecf1',
+          textColor: '#0c5460',
+        };
     }
   };
 
   const riskInfo = getRiskBadgeInfo(riskLevel);
 
-  const getScoreColor = (score) => {
-    if (score >= 80) return "#4CAF50";
-    if (score >= 60) return "#FFD600";
-    if (score >= 40) return "#FF9800";
-    return "#FF6B6B";
+  const getScoreColor = score => {
+    if (score >= 80) return '#4CAF50';
+    if (score >= 60) return '#FFD600';
+    if (score >= 40) return '#FF9800';
+    return '#FF6B6B';
   };
 
-  const getPerformanceEmoji = (score) => {
-    if (score >= 80) return "🌟";
-    if (score >= 60) return "⭐";
-    if (score >= 40) return "💫";
-    return "✨";
+  const getPerformanceEmoji = score => {
+    if (score >= 80) return '🌟';
+    if (score >= 60) return '⭐';
+    if (score >= 40) return '💫';
+    return '✨';
   };
 
   return (
@@ -198,18 +269,32 @@ useEffect(() => {
           {/* Header */}
           <div className="page-header">
             <h1 className="page-title">Your Assessment Results!</h1>
+            {result.completedAt && (
+              <p className="completed-date">
+                Completed on {new Date(result.completedAt).toLocaleDateString()}{' '}
+                at {new Date(result.completedAt).toLocaleTimeString()}
+              </p>
+            )}
+            {result.age_group && (
+              <span className="age-group-badge">
+                Age Group: {result.age_group}
+              </span>
+            )}
           </div>
 
           {/* Main Risk Card */}
           <div className="risk-card">
             <div className="risk-card-header">
               <div className="risk-title-section">
-                <Target size={32} style={{ color: "#667eea" }} />
+                <Target size={32} style={{color: '#667eea'}} />
                 <h2 className="risk-card-title">Overall Risk</h2>
               </div>
-              <div 
+              <div
                 className="risk-badge"
-                style={{ backgroundColor: riskInfo.bgColor, color: riskInfo.textColor }}
+                style={{
+                  backgroundColor: riskInfo.bgColor,
+                  color: riskInfo.textColor,
+                }}
               >
                 {riskInfo.icon}
                 <span className="risk-badge-text">{likelihood}</span>
@@ -219,7 +304,9 @@ useEffect(() => {
             <div className="risk-card-content">
               <div className="score-display">
                 <div className="score-circle">
-                  <div className="score-number">{compositeScore.toFixed(1)}</div>
+                  <div className="score-number">
+                    {compositeScore.toFixed(1)}
+                  </div>
                   <div className="score-label">Composite Score</div>
                 </div>
                 <div className="likelihood-box">
@@ -232,9 +319,7 @@ useEffect(() => {
 
           {/* Fun Section Title */}
           <div className="section-header">
-            
             <h2 className="section-title">Your Super Skills!</h2>
-            
           </div>
 
           {/* Domain Cards - Side by Side */}
@@ -245,24 +330,36 @@ useEffect(() => {
                 <Eye size={40} color="white" />
               </div>
               <h3 className="domain-title">👁️ Attention</h3>
-              
+
               <div className="progress-ring">
                 <svg width="120" height="120">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="#f0f0f0" strokeWidth="10"/>
-                  <circle 
-                    cx="60" 
-                    cy="60" 
-                    r="50" 
-                    fill="none" 
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#f0f0f0"
+                    strokeWidth="10"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
                     stroke={getScoreColor(attentionScore)}
                     strokeWidth="10"
                     strokeDasharray={`${attentionScore * 3.14} 314`}
                     strokeLinecap="round"
-                    style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
+                    style={{
+                      transform: 'rotate(-90deg)',
+                      transformOrigin: 'center',
+                    }}
                   />
                 </svg>
                 <div className="ring-score">
-                  <span className="ring-score-emoji">{getPerformanceEmoji(attentionScore)}</span>
+                  <span className="ring-score-emoji">
+                    {getPerformanceEmoji(attentionScore)}
+                  </span>
                   <span className="ring-score-number">{attentionScore}</span>
                 </div>
               </div>
@@ -279,7 +376,8 @@ useEffect(() => {
               </div>
 
               <p className="domain-explanation">
-                {explanations.attention || "Your ability to focus and stay on task."}
+                {explanations.attention ||
+                  'Your ability to focus and stay on task.'}
               </p>
             </div>
 
@@ -289,24 +387,36 @@ useEffect(() => {
                 <Zap size={40} color="white" />
               </div>
               <h3 className="domain-title">⚡ Impulsivity</h3>
-              
+
               <div className="progress-ring">
                 <svg width="120" height="120">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="#f0f0f0" strokeWidth="10"/>
-                  <circle 
-                    cx="60" 
-                    cy="60" 
-                    r="50" 
-                    fill="none" 
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#f0f0f0"
+                    strokeWidth="10"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
                     stroke={getScoreColor(impulsivityScore)}
                     strokeWidth="10"
                     strokeDasharray={`${impulsivityScore * 3.14} 314`}
                     strokeLinecap="round"
-                    style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
+                    style={{
+                      transform: 'rotate(-90deg)',
+                      transformOrigin: 'center',
+                    }}
                   />
                 </svg>
                 <div className="ring-score">
-                  <span className="ring-score-emoji">{getPerformanceEmoji(impulsivityScore)}</span>
+                  <span className="ring-score-emoji">
+                    {getPerformanceEmoji(impulsivityScore)}
+                  </span>
                   <span className="ring-score-number">{impulsivityScore}</span>
                 </div>
               </div>
@@ -323,7 +433,8 @@ useEffect(() => {
               </div>
 
               <p className="domain-explanation">
-                {explanations.impulsivity || "Your ability to control impulses and reactions."}
+                {explanations.impulsivity ||
+                  'Your ability to control impulses and reactions.'}
               </p>
             </div>
 
@@ -333,25 +444,39 @@ useEffect(() => {
                 <Brain size={40} color="white" />
               </div>
               <h3 className="domain-title">🧠 Memory</h3>
-              
+
               <div className="progress-ring">
                 <svg width="120" height="120">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="#f0f0f0" strokeWidth="10"/>
-                  <circle 
-                    cx="60" 
-                    cy="60" 
-                    r="50" 
-                    fill="none" 
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#f0f0f0"
+                    strokeWidth="10"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
                     stroke={getScoreColor(workingMemoryScore)}
                     strokeWidth="10"
                     strokeDasharray={`${workingMemoryScore * 3.14} 314`}
                     strokeLinecap="round"
-                    style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
+                    style={{
+                      transform: 'rotate(-90deg)',
+                      transformOrigin: 'center',
+                    }}
                   />
                 </svg>
                 <div className="ring-score">
-                  <span className="ring-score-emoji">{getPerformanceEmoji(workingMemoryScore)}</span>
-                  <span className="ring-score-number">{workingMemoryScore}</span>
+                  <span className="ring-score-emoji">
+                    {getPerformanceEmoji(workingMemoryScore)}
+                  </span>
+                  <span className="ring-score-number">
+                    {workingMemoryScore}
+                  </span>
                 </div>
               </div>
 
@@ -367,16 +492,19 @@ useEffect(() => {
               </div>
 
               <p className="domain-explanation">
-                {explanations.working_memory || "Your ability to remember and use information."}
+                {explanations.working_memory ||
+                  'Your ability to remember and use information.'}
               </p>
             </div>
           </div>
 
           {/* Disclaimer */}
           <div className="disclaimer">
-            <AlertCircle size={20} style={{ flexShrink: 0 }} />
+            <AlertCircle size={20} style={{flexShrink: 0}} />
             <p className="disclaimer-text">
-              <strong>Important:</strong> This assessment is not a medical diagnosis. Please consult a qualified healthcare professional for a complete evaluation.
+              <strong>Important:</strong> This assessment is not a medical
+              diagnosis. Please consult a qualified healthcare professional for
+              a complete evaluation.
             </p>
           </div>
 
@@ -385,6 +513,23 @@ useEffect(() => {
             <button className="download-btn" onClick={() => window.print()}>
               <Download size={20} />
               <span>Download / Print Report</span>
+            </button>
+            <button 
+              className="back-btn" 
+              onClick={() => window.location.href = '/profile'}
+              style={{
+                padding: '12px 24px',
+                background: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                marginLeft: '12px'
+              }}
+            >
+              Back to Profile
             </button>
           </div>
         </div>
