@@ -321,7 +321,7 @@ export default function ProfilePage() {
                   <button
                     className="view-btn"
                     onClick={() =>
-                      (window.location.href = `/results?id=${assessment._id}`)
+                      (window.location.href = `/home/results?id=${assessment._id}`)
                     }
                   >
                     <Eye size={18} />
