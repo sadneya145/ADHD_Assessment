@@ -154,9 +154,9 @@ const authenticateToken = (req, res, next) => {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
 
-    // FIX: Map actual field from your token
+    // CONSISTENT: Always use userId everywhere
     req.user = {
-      id: decoded.userId,     // <-- THIS is the correct ID
+      userId: decoded.userId,  // Changed from 'id' to 'userId'
       email: decoded.email
     };
 
@@ -214,42 +214,51 @@ app.post('/api/auth/register', async (req, res) => {
 // GET PROFILE + STATS
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).populate('assessments');
+    const user = await User.findById(req.user.userId)
+      .select('-password')
+      .populate('assessments');
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Stats
-    const totalAssessments = user.assessments.length;
+    // Calculate stats from assessments
+    const assessments = user.assessments || [];
+    const totalAssessments = assessments.length;
 
-    const lastAssessment = totalAssessments
-      ? user.assessments[user.assessments.length - 1].completedAt
+    const lastAssessment = totalAssessments > 0
+      ? assessments[assessments.length - 1].completedAt
       : null;
 
-    const avgComposite =
-      totalAssessments > 0
-        ? (
-            user.assessments.reduce(
-              (sum, a) => sum + (a.modelResult?.composite_score || 0),
-              0
-            ) / totalAssessments
-          ).toFixed(2)
-        : null;
+    // FIX: Return as NUMBER, not string
+    let averageCompositeScore = null;
+    if (totalAssessments > 0) {
+      const sum = assessments.reduce((acc, assessment) => {
+        const score = assessment.modelResult?.composite_score;
+        return acc + (typeof score === 'number' ? score : 0);
+      }, 0);
+      averageCompositeScore = sum / totalAssessments;  // Keep as number
+    }
 
     res.json({
-      user,
+      user: {
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        age: user.age,
+        createdAt: user.createdAt,
+      },
       stats: {
         totalAssessments,
         lastAssessment,
-        averageCompositeScore: avgComposite,
+        averageCompositeScore,  // Now returns number or null
       },
     });
   } catch (err) {
+    console.error('Profile error:', err);
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
-
 
 // UPDATE PROFILE
 app.put('/api/profile', authenticateToken, async (req, res) => {
@@ -257,40 +266,57 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
     const { displayName, age } = req.body;
 
     const user = await User.findByIdAndUpdate(
-      req.user.id,
+      req.user.userId,  // Changed from req.user.id
       { displayName, age },
-      { new: true }
+      { new: true, select: '-password' }
     );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     res.json({ message: 'Profile updated', user });
   } catch (err) {
+    console.error('Update profile error:', err);
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
-
 // GET ASSESSMENT HISTORY
 app.get('/api/assessments/history', authenticateToken, async (req, res) => {
-  const limit = parseInt(req.query.limit) || 20;
-
   try {
-    const assessments = await Assessment.find({ userId: req.user.id })
-      .sort({ completedAt: -1 })
-      .limit(limit);
+    const limit = parseInt(req.query.limit) || 20;
+    const page = parseInt(req.query.page) || 1;
+    const skip = (page - 1) * limit;
 
-    res.json({ assessments });
+    const assessments = await Assessment.find({ userId: req.user.userId })  // Changed
+      .sort({ completedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('completedAt modelResult');
+
+    const total = await Assessment.countDocuments({ userId: req.user.userId });
+
+    res.json({
+      assessments,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalAssessments: total,
+      },
+    });
   } catch (err) {
+    console.error('Assessment history error:', err);
     res.status(500).json({ error: 'Failed to fetch history' });
   }
 });
-
 
 // DELETE ASSESSMENT
 app.delete('/api/assessments/:id', authenticateToken, async (req, res) => {
   try {
     const assessment = await Assessment.findOneAndDelete({
       _id: req.params.id,
-      userId: req.user.id,
+      userId: req.user.userId,  // Changed from req.user.id
     });
 
     if (!assessment) {
@@ -298,16 +324,16 @@ app.delete('/api/assessments/:id', authenticateToken, async (req, res) => {
     }
 
     // Remove reference from User.assessments array
-    await User.findByIdAndUpdate(req.user.id, {
+    await User.findByIdAndUpdate(req.user.userId, {
       $pull: { assessments: req.params.id },
     });
 
-    res.json({ message: 'Assessment deleted' });
+    res.json({ message: 'Assessment deleted successfully' });
   } catch (err) {
+    console.error('Delete assessment error:', err);
     res.status(500).json({ error: 'Failed to delete assessment' });
   }
 });
-
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
@@ -526,13 +552,13 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
 // Get User's Assessments
 app.get('/api/assessments', authenticateToken, async (req, res) => {
   try {
-    const assessments = await Assessment.find({userId: req.user.userId}).sort({
-      completedAt: -1,
-    });
+    const assessments = await Assessment.find({ userId: req.user.userId })
+      .sort({ completedAt: -1 });
 
-    res.json({assessments});
+    res.json({ assessments });
   } catch (error) {
-    res.status(500).json({error: error.message});
+    console.error('Get assessments error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -541,16 +567,17 @@ app.get('/api/assessments/:id', authenticateToken, async (req, res) => {
   try {
     const assessment = await Assessment.findOne({
       _id: req.params.id,
-      userId: req.user.userId,
+      userId: req.user.userId,  // Changed from req.user.id
     });
 
     if (!assessment) {
-      return res.status(404).json({error: 'Assessment not found'});
+      return res.status(404).json({ error: 'Assessment not found' });
     }
 
-    res.json({assessment});
+    res.json({ assessment });
   } catch (error) {
-    res.status(500).json({error: error.message});
+    console.error('Get assessment error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -578,142 +605,142 @@ app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
   }
 });
 
-// ==================== HELPER FUNCTIONS ====================
+// // ==================== HELPER FUNCTIONS ====================
 
-function analyzeMouseMovement(mouseData) {
-  if (!mouseData || mouseData.length < 10) {
-    return {
-      adhd_type: 'Insufficient Data',
-      confidence: 0,
-      classifications: {},
-    };
-  }
+// function analyzeMouseMovement(mouseData) {
+//   if (!mouseData || mouseData.length < 10) {
+//     return {
+//       adhd_type: 'Insufficient Data',
+//       confidence: 0,
+//       classifications: {},
+//     };
+//   }
 
-  // Calculate features
-  const velocities = [];
-  const accelerations = [];
-  const directionChanges = [];
+//   // Calculate features
+//   const velocities = [];
+//   const accelerations = [];
+//   const directionChanges = [];
 
-  for (let i = 1; i < mouseData.length; i++) {
-    const dt = mouseData[i].time - mouseData[i - 1].time;
-    if (dt === 0) continue;
+//   for (let i = 1; i < mouseData.length; i++) {
+//     const dt = mouseData[i].time - mouseData[i - 1].time;
+//     if (dt === 0) continue;
 
-    const dx = mouseData[i].x - mouseData[i - 1].x;
-    const dy = mouseData[i].y - mouseData[i - 1].y;
-    const velocity = Math.sqrt(dx * dx + dy * dy) / dt;
-    velocities.push(velocity);
+//     const dx = mouseData[i].x - mouseData[i - 1].x;
+//     const dy = mouseData[i].y - mouseData[i - 1].y;
+//     const velocity = Math.sqrt(dx * dx + dy * dy) / dt;
+//     velocities.push(velocity);
 
-    if (i > 1) {
-      const prevVelocity = velocities[i - 2];
-      const acceleration = Math.abs(velocity - prevVelocity) / dt;
-      accelerations.push(acceleration);
+//     if (i > 1) {
+//       const prevVelocity = velocities[i - 2];
+//       const acceleration = Math.abs(velocity - prevVelocity) / dt;
+//       accelerations.push(acceleration);
 
-      // Direction changes
-      const prevDx = mouseData[i - 1].x - mouseData[i - 2].x;
-      const prevDy = mouseData[i - 1].y - mouseData[i - 2].y;
-      const dotProduct = dx * prevDx + dy * prevDy;
-      const magnitude =
-        Math.sqrt(dx * dx + dy * dy) *
-        Math.sqrt(prevDx * prevDx + prevDy * prevDy);
-      if (magnitude > 0) {
-        const angle = Math.acos(dotProduct / magnitude);
-        if (angle > Math.PI / 4) directionChanges.push(angle);
-      }
-    }
-  }
+//       // Direction changes
+//       const prevDx = mouseData[i - 1].x - mouseData[i - 2].x;
+//       const prevDy = mouseData[i - 1].y - mouseData[i - 2].y;
+//       const dotProduct = dx * prevDx + dy * prevDy;
+//       const magnitude =
+//         Math.sqrt(dx * dx + dy * dy) *
+//         Math.sqrt(prevDx * prevDx + prevDy * prevDy);
+//       if (magnitude > 0) {
+//         const angle = Math.acos(dotProduct / magnitude);
+//         if (angle > Math.PI / 4) directionChanges.push(angle);
+//       }
+//     }
+//   }
 
-  const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
-  const velocityStd = Math.sqrt(
-    velocities.reduce((a, b) => a + Math.pow(b - avgVelocity, 2), 0) /
-      velocities.length
-  );
-  const avgAcceleration =
-    accelerations.length > 0
-      ? accelerations.reduce((a, b) => a + b, 0) / accelerations.length
-      : 0;
-  const directionChangeCount = directionChanges.length;
+//   const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
+//   const velocityStd = Math.sqrt(
+//     velocities.reduce((a, b) => a + Math.pow(b - avgVelocity, 2), 0) /
+//       velocities.length
+//   );
+//   const avgAcceleration =
+//     accelerations.length > 0
+//       ? accelerations.reduce((a, b) => a + b, 0) / accelerations.length
+//       : 0;
+//   const directionChangeCount = directionChanges.length;
 
-  // Classification logic
-  let adhdType = 'No ADHD';
-  let confidence = 0;
+//   // Classification logic
+//   let adhdType = 'No ADHD';
+//   let confidence = 0;
 
-  if (velocityStd > 5 && avgAcceleration > 0.5) {
-    adhdType = 'Hyperactive ADHD';
-    confidence = Math.min(85, 60 + velocityStd * 3 + avgAcceleration * 10);
-  } else if (directionChangeCount > mouseData.length * 0.3) {
-    adhdType = 'Inattentive ADHD';
-    confidence = Math.min(
-      80,
-      55 + (directionChangeCount / mouseData.length) * 100
-    );
-  } else if (velocityStd > 3 && directionChangeCount > mouseData.length * 0.2) {
-    adhdType = 'Combined ADHD';
-    confidence = Math.min(
-      82,
-      58 + velocityStd * 2 + (directionChangeCount / mouseData.length) * 50
-    );
-  } else {
-    confidence = Math.max(70, 90 - velocityStd * 2);
-  }
+//   if (velocityStd > 5 && avgAcceleration > 0.5) {
+//     adhdType = 'Hyperactive ADHD';
+//     confidence = Math.min(85, 60 + velocityStd * 3 + avgAcceleration * 10);
+//   } else if (directionChangeCount > mouseData.length * 0.3) {
+//     adhdType = 'Inattentive ADHD';
+//     confidence = Math.min(
+//       80,
+//       55 + (directionChangeCount / mouseData.length) * 100
+//     );
+//   } else if (velocityStd > 3 && directionChangeCount > mouseData.length * 0.2) {
+//     adhdType = 'Combined ADHD';
+//     confidence = Math.min(
+//       82,
+//       58 + velocityStd * 2 + (directionChangeCount / mouseData.length) * 50
+//     );
+//   } else {
+//     confidence = Math.max(70, 90 - velocityStd * 2);
+//   }
 
-  return {
-    adhd_type: adhdType,
-    confidence: parseFloat(confidence.toFixed(1)),
-    classifications: {
-      'Avg Velocity': avgVelocity.toFixed(2),
-      'Velocity Std Dev': velocityStd.toFixed(2),
-      'Avg Acceleration': avgAcceleration.toFixed(2),
-      'Direction Changes': directionChangeCount,
-    },
-  };
-}
+//   return {
+//     adhd_type: adhdType,
+//     confidence: parseFloat(confidence.toFixed(1)),
+//     classifications: {
+//       'Avg Velocity': avgVelocity.toFixed(2),
+//       'Velocity Std Dev': velocityStd.toFixed(2),
+//       'Avg Acceleration': avgAcceleration.toFixed(2),
+//       'Direction Changes': directionChangeCount,
+//     },
+//   };
+// }
 
-function calculateOverallResult(data) {
-  const scores = [];
-  let classifications = [];
+// function calculateOverallResult(data) {
+//   const scores = [];
+//   let classifications = [];
 
-  // Questionnaire
-  if (data.questionnaire) {
-    classifications.push(data.questionnaire.classification);
-    const totalScore =
-      data.questionnaire.inattentiveScore + data.questionnaire.hyperactiveScore;
-    scores.push(totalScore > 10 ? 80 : 40);
-  }
+//   // Questionnaire
+//   if (data.questionnaire) {
+//     classifications.push(data.questionnaire.classification);
+//     const totalScore =
+//       data.questionnaire.inattentiveScore + data.questionnaire.hyperactiveScore;
+//     scores.push(totalScore > 10 ? 80 : 40);
+//   }
 
-  // Go/No-Go
-  if (data.goNoGo) {
-    const accuracy =
-      data.goNoGo.hits /
-      (data.goNoGo.hits + data.goNoGo.misses + data.goNoGo.falseAlarms);
-    scores.push(accuracy < 0.7 ? 70 : 30);
-  }
+//   // Go/No-Go
+//   if (data.goNoGo) {
+//     const accuracy =
+//       data.goNoGo.hits /
+//       (data.goNoGo.hits + data.goNoGo.misses + data.goNoGo.falseAlarms);
+//     scores.push(accuracy < 0.7 ? 70 : 30);
+//   }
 
-  // N-Back
-  if (data.nBack) {
-    scores.push(data.nBack.accuracy < 60 ? 65 : 35);
-  }
+//   // N-Back
+//   if (data.nBack) {
+//     scores.push(data.nBack.accuracy < 60 ? 65 : 35);
+//   }
 
-  // Stroop
-  if (data.stroop) {
-    const stroopAccuracy = (data.stroop.score / data.stroop.totalRounds) * 100;
-    scores.push(stroopAccuracy < 70 ? 70 : 30);
-  }
+//   // Stroop
+//   if (data.stroop) {
+//     const stroopAccuracy = (data.stroop.score / data.stroop.totalRounds) * 100;
+//     scores.push(stroopAccuracy < 70 ? 70 : 30);
+//   }
 
-  // Mouse Tracking
-  if (data.mouseTracking?.analysisResult) {
-    classifications.push(data.mouseTracking.analysisResult.adhd_type);
-    scores.push(data.mouseTracking.analysisResult.confidence);
-  }
+//   // Mouse Tracking
+//   if (data.mouseTracking?.analysisResult) {
+//     classifications.push(data.mouseTracking.analysisResult.adhd_type);
+//     scores.push(data.mouseTracking.analysisResult.confidence);
+//   }
 
-  const avgConfidence = scores.reduce((a, b) => a + b, 0) / scores.length;
-  const finalClassification = getMostCommonClassification(classifications);
+//   const avgConfidence = scores.reduce((a, b) => a + b, 0) / scores.length;
+//   const finalClassification = getMostCommonClassification(classifications);
 
-  return {
-    finalClassification,
-    confidence: parseFloat(avgConfidence.toFixed(1)),
-    recommendations: generateRecommendations(finalClassification),
-  };
-}
+//   return {
+//     finalClassification,
+//     confidence: parseFloat(avgConfidence.toFixed(1)),
+//     recommendations: generateRecommendations(finalClassification),
+//   };
+// }
 
 function getMostCommonClassification(classifications) {
   const counts = {};
