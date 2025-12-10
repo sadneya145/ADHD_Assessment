@@ -711,57 +711,76 @@ app.get('/api/assessments/:id', authenticateToken, async (req, res) => {
   }
 });
 // ==================== MOUSE ANALYSIS ENDPOINT (FIXED) ====================
-// Replace your current /api/analyze/mouse endpoint with this
-
 app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
   try {
     console.log('\n🐭 ==================== MOUSE ANALYSIS REQUEST ====================');
-    console.log('📊 Request body type:', Array.isArray(req.body) ? 'Array' : typeof req.body);
-    console.log('📊 Data points received:', Array.isArray(req.body) ? req.body.length : 'N/A');
+    console.log('📊 Content-Type:', req.headers['content-type']);
+    console.log('📊 Body type:', typeof req.body);
+    console.log('📊 Is Array:', Array.isArray(req.body));
     
+    // Your frontend sends mouseData as direct array
     const mouseData = req.body;
 
-    // Validate input
-    if (!Array.isArray(mouseData) || mouseData.length === 0) {
-      console.error('❌ Invalid mouse data format');
+    // Validation
+    if (!Array.isArray(mouseData)) {
+      console.error('❌ Not an array:', typeof mouseData);
       return res.status(400).json({
-        error: 'Invalid mouse data format. Expected array of mouse positions.',
+        error: 'Expected array of mouse positions',
+        received_type: typeof mouseData,
         adhd_type: 'Error',
         confidence: 0
       });
     }
 
-    // Check data structure
+    if (mouseData.length === 0) {
+      console.error('❌ Empty array');
+      return res.status(400).json({
+        error: 'Empty mouse data array',
+        adhd_type: 'Insufficient Data',
+        confidence: 0
+      });
+    }
+
+    if (mouseData.length < 10) {
+      console.error('❌ Too few points:', mouseData.length);
+      return res.status(400).json({
+        error: `Too few data points: ${mouseData.length}. Need at least 10.`,
+        adhd_type: 'Insufficient Data',
+        confidence: 0
+      });
+    }
+
+    console.log('✅ Data points:', mouseData.length);
+    console.log('📍 First point:', JSON.stringify(mouseData[0]));
+    console.log('📍 Last point:', JSON.stringify(mouseData[mouseData.length - 1]));
+
+    // Validate point structure
     const firstPoint = mouseData[0];
     if (!firstPoint || typeof firstPoint.x !== 'number' || typeof firstPoint.y !== 'number') {
-      console.error('❌ Invalid data point structure:', firstPoint);
+      console.error('❌ Invalid point structure:', firstPoint);
       return res.status(400).json({
-        error: 'Invalid data point structure. Each point must have x, y, and time properties.',
+        error: 'Invalid data point. Each point must have x and y numbers.',
+        sample: firstPoint,
         adhd_type: 'Error',
         confidence: 0
       });
     }
 
-    console.log('✅ Mouse data validated');
-    console.log('📍 Sample points:', {
-      first: firstPoint,
-      last: mouseData[mouseData.length - 1]
-    });
+    console.log('✅ Data validated successfully');
 
-    // Run Python analysis
+    // Try Python analysis first
     let analysis;
     try {
+      console.log('🐍 Attempting Python analysis...');
       analysis = await analyzeMouseWithPython(mouseData);
-      console.log('✅ Python analysis completed:', analysis);
+      console.log('✅ Python analysis succeeded:', analysis.adhd_type);
     } catch (pythonError) {
-      console.error('❌ Python analysis failed:', pythonError.message);
-      
-      // Fallback to JavaScript analysis
-      console.log('⚠️ Using JavaScript fallback analysis');
+      console.error('❌ Python failed:', pythonError.message);
+      console.log('⚠️ Using JavaScript fallback');
       analysis = analyzeMouseMovementJS(mouseData);
     }
 
-    // Save to database
+    // Save to database (optional, don't fail if this fails)
     try {
       const mouseRecord = new MouseData({
         userId: req.user.userId,
@@ -773,26 +792,24 @@ app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
           features: analysis.classifications || {},
         },
       });
-
       await mouseRecord.save();
-      console.log('✅ Mouse data saved to database');
+      console.log('✅ Saved to database');
     } catch (dbError) {
-      console.error('⚠️ Failed to save to database:', dbError.message);
-      // Don't fail the request if DB save fails
+      console.error('⚠️ DB save failed (non-critical):', dbError.message);
     }
 
-    console.log('🐭 ==================== MOUSE ANALYSIS COMPLETE ====================\n');
-    
-    // Return analysis result
+    console.log('🐭 ==================== SUCCESS ====================\n');
+
+    // Return result
     res.json({
-      adhd_type: analysis.adhd_type,
-      confidence: analysis.confidence,
+      adhd_type: analysis.adhd_type || 'Unknown',
+      confidence: analysis.confidence || 0,
       classifications: analysis.classifications || {},
       raw_metrics: analysis.raw_metrics || {}
     });
 
   } catch (error) {
-    console.error('❌ Mouse analysis endpoint error:', error);
+    console.error('❌ Endpoint error:', error);
     console.error('Stack:', error.stack);
     res.status(500).json({
       error: 'Server error: ' + error.message,
@@ -802,121 +819,123 @@ app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
   }
 });
 
-// ==================== JAVASCRIPT FALLBACK ANALYSIS ====================
-// Simpler JavaScript-based analysis if Python fails
+
+// ==================== ADD THIS JAVASCRIPT FALLBACK FUNCTION ====================
+// Add this function somewhere in your index.js (before the SERVER START section)
 
 function analyzeMouseMovementJS(mouseData) {
-  console.log('🔧 Running JavaScript fallback analysis');
+  console.log('🔧 JS Fallback Analysis');
   
   if (!mouseData || mouseData.length < 10) {
     return {
       adhd_type: 'Insufficient Data',
       confidence: 0,
-      classifications: {},
-      raw_metrics: {}
+      classifications: { 'Status': 'Too few data points' },
+      raw_metrics: { data_points: mouseData ? mouseData.length : 0 }
     };
   }
 
-  // Calculate features
-  const velocities = [];
-  const accelerations = [];
-  const directionChanges = [];
-  let totalDistance = 0;
+  try {
+    const velocities = [];
+    const accelerations = [];
+    let directionChanges = 0;
+    let totalDistance = 0;
 
-  for (let i = 1; i < mouseData.length; i++) {
-    const dt = mouseData[i].time - mouseData[i - 1].time;
-    if (dt === 0) continue;
+    // Calculate metrics
+    for (let i = 1; i < mouseData.length; i++) {
+      const dt = (mouseData[i].time - mouseData[i - 1].time) || 0.016;
+      const dx = mouseData[i].x - mouseData[i - 1].x;
+      const dy = mouseData[i].y - mouseData[i - 1].y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      totalDistance += distance;
+      const velocity = distance / dt;
+      velocities.push(velocity);
 
-    const dx = mouseData[i].x - mouseData[i - 1].x;
-    const dy = mouseData[i].y - mouseData[i - 1].y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    totalDistance += distance;
-    
-    const velocity = distance / dt;
-    velocities.push(velocity);
+      if (i > 1) {
+        const prevVelocity = velocities[velocities.length - 2];
+        const acceleration = Math.abs(velocity - prevVelocity) / dt;
+        accelerations.push(acceleration);
 
-    if (i > 1) {
-      const prevVelocity = velocities[velocities.length - 2];
-      const acceleration = Math.abs(velocity - prevVelocity) / dt;
-      accelerations.push(acceleration);
-
-      // Direction changes
-      const prevDx = mouseData[i - 1].x - mouseData[i - 2].x;
-      const prevDy = mouseData[i - 1].y - mouseData[i - 2].y;
-      const dotProduct = dx * prevDx + dy * prevDy;
-      const magnitude =
-        Math.sqrt(dx * dx + dy * dy) *
-        Math.sqrt(prevDx * prevDx + prevDy * prevDy);
-      if (magnitude > 0) {
-        const angle = Math.acos(Math.max(-1, Math.min(1, dotProduct / magnitude)));
-        if (angle > Math.PI / 4) directionChanges.push(angle);
+        // Check direction change
+        const prevDx = mouseData[i - 1].x - mouseData[i - 2].x;
+        const prevDy = mouseData[i - 1].y - mouseData[i - 2].y;
+        const dotProduct = dx * prevDx + dy * prevDy;
+        const magnitude = Math.sqrt(dx*dx + dy*dy) * Math.sqrt(prevDx*prevDx + prevDy*prevDy);
+        
+        if (magnitude > 0) {
+          const cosAngle = Math.max(-1, Math.min(1, dotProduct / magnitude));
+          const angle = Math.acos(cosAngle);
+          if (angle > Math.PI / 4) directionChanges++;
+        }
       }
     }
+
+    // Statistics
+    const avgVel = velocities.reduce((a,b) => a+b, 0) / velocities.length;
+    const maxVel = Math.max(...velocities);
+    const velStd = Math.sqrt(velocities.reduce((a,b) => a + (b-avgVel)**2, 0) / velocities.length);
+    const maxAcc = accelerations.length > 0 ? Math.max(...accelerations) : 0;
+    const dirChangeRate = directionChanges / mouseData.length;
+
+    const raw_metrics = {
+      total_distance: Math.round(totalDistance),
+      max_velocity: Math.round(maxVel * 10) / 10,
+      mean_velocity: Math.round(avgVel * 10) / 10,
+      vel_std: Math.round(velStd * 10) / 10,
+      max_acceleration: Math.round(maxAcc),
+      direction_changes: directionChanges,
+      direction_change_rate: Math.round(dirChangeRate * 1000) / 1000
+    };
+
+    // Classifications
+    const classifications = {
+      'Total Distance': totalDistance > 4000 ? 'High' : totalDistance > 1000 ? 'Borderline' : 'Normal',
+      'Max Velocity': maxVel > 1000 ? 'High' : maxVel > 300 ? 'Borderline' : 'Normal',
+      'Velocity Variability': velStd > 500 ? 'High' : velStd > 100 ? 'Borderline' : 'Normal',
+      'Direction Changes': dirChangeRate > 0.3 ? 'High' : dirChangeRate > 0.1 ? 'Borderline' : 'Normal'
+    };
+
+    // Determine type
+    const highVel = classifications['Max Velocity'] === 'High';
+    const highVar = classifications['Velocity Variability'] === 'High';
+    const highDir = classifications['Direction Changes'] === 'High';
+
+    let adhd_type = 'No ADHD Indicators';
+    let confidence = 70;
+
+    if ((highVel || highVar) && highDir) {
+      adhd_type = 'Combined Type';
+      confidence = 75;
+    } else if (highVel || highVar) {
+      adhd_type = 'Hyperactive Type';
+      confidence = 65;
+    } else if (highDir) {
+      adhd_type = 'Inattentive Type';
+      confidence = 60;
+    } else {
+      const normalCount = Object.values(classifications).filter(v => v === 'Normal').length;
+      confidence = 70 + normalCount * 5;
+    }
+
+    console.log('✅ Analysis:', adhd_type, confidence);
+
+    return {
+      adhd_type,
+      confidence: Math.round(confidence * 10) / 10,
+      classifications,
+      raw_metrics
+    };
+
+  } catch (error) {
+    console.error('❌ JS analysis error:', error);
+    return {
+      adhd_type: 'Analysis Error',
+      confidence: 0,
+      classifications: { 'Error': error.message },
+      raw_metrics: {}
+    };
   }
-
-  const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
-  const maxVelocity = Math.max(...velocities);
-  const velocityStd = Math.sqrt(
-    velocities.reduce((a, b) => a + Math.pow(b - avgVelocity, 2), 0) /
-      velocities.length
-  );
-  const maxAcceleration = accelerations.length > 0 ? Math.max(...accelerations) : 0;
-  const avgAcceleration =
-    accelerations.length > 0
-      ? accelerations.reduce((a, b) => a + b, 0) / accelerations.length
-      : 0;
-  const directionChangeCount = directionChanges.length;
-
-  // Raw metrics
-  const raw_metrics = {
-    total_distance: totalDistance,
-    max_velocity: maxVelocity,
-    max_acceleration: maxAcceleration,
-    vel_std: velocityStd,
-    acc_std: avgAcceleration,
-    mean_velocity: avgVelocity,
-    direction_changes: directionChangeCount
-  };
-
-  // Classifications
-  const classifications = {
-    'Total Distance': totalDistance > 4000 ? 'High' : totalDistance > 1000 ? 'Borderline' : 'Normal',
-    'Max Velocity': maxVelocity > 1000 ? 'High' : maxVelocity > 300 ? 'Borderline' : 'Normal',
-    'Velocity Variability': velocityStd > 500 ? 'High' : velocityStd > 100 ? 'Borderline' : 'Normal',
-    'Direction Changes': directionChangeCount > 20 ? 'High' : directionChangeCount > 5 ? 'Borderline' : 'Normal'
-  };
-
-  // Determine ADHD type
-  const highVelocity = classifications['Max Velocity'] === 'High';
-  const highVariability = classifications['Velocity Variability'] === 'High';
-  const highDirectionChanges = classifications['Direction Changes'] === 'High';
-
-  let adhdType = 'No ADHD Indicators';
-  let confidence = 0;
-
-  if ((highVelocity || highVariability) && highDirectionChanges) {
-    adhdType = 'Combined Type';
-    confidence = 75;
-  } else if (highVelocity || highVariability) {
-    adhdType = 'Hyperactive Type';
-    confidence = 65;
-  } else if (highDirectionChanges) {
-    adhdType = 'Inattentive Type';
-    confidence = 60;
-  } else {
-    // Count normals
-    const normalCount = Object.values(classifications).filter(v => v === 'Normal').length;
-    confidence = (normalCount / Object.keys(classifications).length) * 100;
-  }
-
-  console.log('✅ JS Fallback analysis:', { adhdType, confidence: confidence.toFixed(1) });
-
-  return {
-    adhd_type: adhdType,
-    confidence: parseFloat(confidence.toFixed(1)),
-    classifications: classifications,
-    raw_metrics: raw_metrics
-  };
 }
 // ==================== SERVER START ====================
 

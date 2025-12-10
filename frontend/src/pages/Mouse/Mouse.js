@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Circle, Square, Triangle, Star, Download } from 'lucide-react';
+import React, {useState, useRef, useEffect, useCallback} from 'react';
+import {Circle, Square, Triangle, Star, Download} from 'lucide-react';
 import './MouseAnalysis.css';
 import Header from '../Header/Header';
 import Footer from '../Footer/Footer';
@@ -7,10 +7,10 @@ import Footer from '../Footer/Footer';
 const BACKEND_URL = 'https://adhd-assessment-backend.onrender.com'; // or your localhost during dev
 // const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const shapeTypes = [
-  { id: 'circle', color: '#FF6B6B', icon: Circle },
-  { id: 'square', color: '#4ECDC4', icon: Square },
-  { id: 'triangle', color: '#FFE66D', icon: Triangle },
-  { id: 'star', color: '#95E1D3', icon: Star },
+  {id: 'circle', color: '#FF6B6B', icon: Circle},
+  {id: 'square', color: '#4ECDC4', icon: Square},
+  {id: 'triangle', color: '#FFE66D', icon: Triangle},
+  {id: 'star', color: '#95E1D3', icon: Star},
 ];
 
 const ShapeGame = () => {
@@ -44,22 +44,12 @@ const ShapeGame = () => {
   const generateShapes = useCallback(() => {
     const shapes = shapeTypes.map((type, idx) => ({
       ...type,
-      sourcePos: { x: 50 + idx * 100, y: 450 },
-      targetPos: { x: Math.random() * 400 + 100, y: Math.random() * 250 + 50 },
+      sourcePos: {x: 50 + idx * 100, y: 450},
+      targetPos: {x: Math.random() * 400 + 100, y: Math.random() * 250 + 50},
       matched: false,
     }));
     setCurrentShapes(shapes);
   }, []);
-
-  // Mouse tracking
-  const trackMouse = useCallback((e) => {
-    if (!gameStarted || gameEnded) return;
-    const currentTime = (Date.now() - startTimeRef.current) / 1000;
-    const rect = gameAreaRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setMouseData((prev) => [...prev, { time: currentTime, x, y }]);
-  }, [gameStarted, gameEnded]);
 
   // Start game
   const startGame = () => {
@@ -77,7 +67,7 @@ const ShapeGame = () => {
   useEffect(() => {
     if (!gameStarted || gameEnded) return;
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
+      setTimeLeft(prev => {
         if (prev <= 1) {
           setGameEnded(true);
           clearInterval(timer);
@@ -101,46 +91,112 @@ const ShapeGame = () => {
     e.preventDefault();
     if (!draggedShape || draggedShape.id !== targetShape.id) return;
 
-    setCurrentShapes((prev) =>
-      prev.map((s) =>
-        s.id === targetShape.id ? { ...s, matched: true } : s
-      )
+    setCurrentShapes(prev =>
+      prev.map(s => (s.id === targetShape.id ? {...s, matched: true} : s))
     );
-    setScore((prev) => prev + 10);
+    setScore(prev => prev + 10);
     setDraggedShape(null);
 
     // Regenerate shapes when all matched
-    if (currentShapes.filter((s) => !s.matched).length === 1) {
+    if (currentShapes.filter(s => !s.matched).length === 1) {
       setTimeout(generateShapes, 500);
     }
   };
 
-  const handleDragOver = (e) => e.preventDefault();
+  const handleDragOver = e => e.preventDefault();
 
-  // Download raw mouse movement
-  const downloadData = () => {
-    const dataStr = JSON.stringify(mouseData, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mouse_tracking_data.json';
-    a.click();
+  // / ==================== ALSO UPDATE YOUR MOUSE TRACKING ====================
+  // Make sure your trackMouse function is correctly formatting the data
+
+  const trackMouse = useCallback(
+    e => {
+      if (!gameStarted || gameEnded) return;
+
+      // Make sure we have the game area ref
+      if (!gameAreaRef.current) {
+        console.warn('⚠️ gameAreaRef not ready');
+        return;
+      }
+
+      const currentTime = (Date.now() - startTimeRef.current) / 1000;
+      const rect = gameAreaRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Create properly formatted point
+      const point = {
+        time: currentTime,
+        x: Math.round(x * 10) / 10, // Round to 1 decimal
+        y: Math.round(y * 10) / 10,
+      };
+
+      setMouseData(prev => [...prev, point]);
+    },
+    [gameStarted, gameEnded]
+  );
+
+  // ==================== ADD THIS: Better validation before sending ====================
+  // Add this function to validate your data before sending
+
+  const validateMouseData = data => {
+    console.log('🔍 Validating mouse data...');
+
+    if (!Array.isArray(data)) {
+      console.error('❌ Not an array');
+      return false;
+    }
+
+    if (data.length < 10) {
+      console.error('❌ Too few points:', data.length);
+      return false;
+    }
+
+    // Check first point
+    const first = data[0];
+    if (!first || typeof first.x !== 'number' || typeof first.y !== 'number') {
+      console.error('❌ Invalid point structure:', first);
+      return false;
+    }
+
+    // Check for NaN or Infinity
+    const hasInvalid = data.some(
+      p => !isFinite(p.x) || !isFinite(p.y) || !isFinite(p.time)
+    );
+
+    if (hasInvalid) {
+      console.error('❌ Contains NaN or Infinity values');
+      return false;
+    }
+
+    console.log('✅ Data validation passed');
+    return true;
   };
 
-  // Send data to backend for ADHD analysis
+  // Then use it in analyzeData:
   const analyzeData = async () => {
     const token = localStorage.getItem('token');
+
     if (!token) {
       setAnalysisResult({
         adhd_type: 'N/A',
         confidence: 0,
-        classifications: { message: 'No auth token found' },
+        classifications: {message: 'No auth token found'},
+      });
+      return;
+    }
+
+    // Validate before sending
+    if (!validateMouseData(mouseData)) {
+      setAnalysisResult({
+        adhd_type: 'Invalid Data',
+        confidence: 0,
+        classifications: {message: 'Mouse data validation failed'},
       });
       return;
     }
 
     setLoadingAnalysis(true);
+
     try {
       const response = await fetch(`${BACKEND_URL}/api/analyze/mouse`, {
         method: 'POST',
@@ -151,20 +207,34 @@ const ShapeGame = () => {
         body: JSON.stringify(mouseData),
       });
 
-      if (!response.ok) throw new Error('Server error');
       const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Server error: ${response.status}`);
+      }
+
       setAnalysisResult(result);
       localStorage.setItem('lastAnalysis', JSON.stringify(result));
     } catch (err) {
       console.error('❌ Analysis failed:', err.message);
       setAnalysisResult({
-        adhd_type: 'N/A',
+        adhd_type: 'Error',
         confidence: 0,
-        classifications: { message: 'Backend not reachable' },
+        classifications: {error: err.message},
       });
     } finally {
       setLoadingAnalysis(false);
     }
+  };
+  // Download raw mouse movement
+  const downloadData = () => {
+    const dataStr = JSON.stringify(mouseData, null, 2);
+    const blob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mouse_tracking_data.json';
+    a.click();
   };
 
   return (
@@ -194,12 +264,12 @@ const ShapeGame = () => {
                 onMouseMove={trackMouse}
                 className="game-area"
               >
-                {currentShapes.map((shape) => {
+                {currentShapes.map(shape => {
                   const Icon = shape.icon;
                   return (
                     <div
                       key={`target-${shape.id}`}
-                      onDrop={(e) => handleDrop(shape, e)}
+                      onDrop={e => handleDrop(shape, e)}
                       onDragOver={handleDragOver}
                       style={{
                         left: shape.targetPos.x,
@@ -210,7 +280,7 @@ const ShapeGame = () => {
                     >
                       <div
                         className="target-border"
-                        style={{ borderColor: shape.color }}
+                        style={{borderColor: shape.color}}
                       >
                         <Icon size={48} color={shape.color} strokeWidth={1} />
                       </div>
@@ -219,12 +289,12 @@ const ShapeGame = () => {
                 })}
 
                 {currentShapes.map(
-                  (shape) =>
+                  shape =>
                     !shape.matched && (
                       <div
                         key={`source-${shape.id}`}
                         draggable
-                        onDragStart={(e) => handleDragStart(shape, e)}
+                        onDragStart={e => handleDragStart(shape, e)}
                         style={{
                           left: shape.sourcePos.x,
                           top: shape.sourcePos.y,
@@ -259,7 +329,9 @@ const ShapeGame = () => {
                   {analysisResult && !loadingAnalysis && (
                     <div className="analysis-box">
                       <h3>🧠 ADHD Analysis Result</h3>
-                      <p><strong>Type:</strong> {analysisResult.adhd_type}</p>
+                      <p>
+                        <strong>Type:</strong> {analysisResult.adhd_type}
+                      </p>
                       <p>
                         <strong>Confidence:</strong>{' '}
                         {analysisResult.confidence.toFixed(1)}%
