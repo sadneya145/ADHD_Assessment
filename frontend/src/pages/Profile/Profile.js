@@ -1,17 +1,26 @@
-"use client";
-import React, { useEffect, useState } from "react";
-import { User, Calendar, TrendingUp, Clock, Eye, ChevronRight, Trash2, Edit } from "lucide-react";
-import "./Profile.css";
+'use client';
+import React, {useEffect, useState} from 'react';
+import {
+  User,
+  Calendar,
+  TrendingUp,
+  Clock,
+  Eye,
+  ChevronRight,
+  Trash2,
+  Edit,
+} from 'lucide-react';
+import './Profile.css';
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null);
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
-    displayName: "",
-    age: ""
+    displayName: '',
+    age: '',
   });
 
   useEffect(() => {
@@ -21,26 +30,29 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       if (!token) {
-        setError("Please log in to view your profile");
+        setError('Please log in to view your profile');
         setLoading(false);
         return;
       }
 
-      const res = await fetch("https://adhd-assessment-backend.onrender.com/api/profile", {
-        headers: {
-          "Authorization": `Bearer ${token}`
+      const res = await fetch(
+        'https://adhd-assessment-backend.onrender.com/api/profile',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
-      if (!res.ok) throw new Error("Failed to fetch profile");
-      
+      if (!res.ok) throw new Error('Failed to fetch profile');
+
       const data = await res.json();
       setProfile(data);
       setFormData({
-        displayName: data.user.displayName || "",
-        age: data.user.age || ""
+        displayName: data.user.displayName || '',
+        age: data.user.age || '',
       });
     } catch (err) {
       setError(err.message);
@@ -49,76 +61,86 @@ export default function ProfilePage() {
 
   const fetchAssessmentHistory = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("https://adhd-assessment-backend.onrender.com/api/assessments/history?limit=20", {
-        headers: {
-          "Authorization": `Bearer ${token}`
+      const token = localStorage.getItem('token');
+      const res = await fetch(
+        'https://adhd-assessment-backend.onrender.com/api/assessments/history?limit=20',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
-      if (!res.ok) throw new Error("Failed to fetch history");
-      
+      if (!res.ok) throw new Error('Failed to fetch history');
+
       const data = await res.json();
       setAssessments(data.assessments);
     } catch (err) {
-      console.error("History error:", err);
+      console.error('History error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateProfile = async (e) => {
+  const handleUpdateProfile = async e => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("https://adhd-assessment-backend.onrender.com/api/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
+      const token = localStorage.getItem('token');
+      const res = await fetch(
+        'https://adhd-assessment-backend.onrender.com/api/profile',
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(formData),
+        }
+      );
 
-      if (!res.ok) throw new Error("Failed to update profile");
-      
+      if (!res.ok) throw new Error('Failed to update profile');
+
       await fetchProfile();
       setEditing(false);
     } catch (err) {
-      alert("Failed to update profile: " + err.message);
+      alert('Failed to update profile: ' + err.message);
     }
   };
 
-  const handleDeleteAssessment = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this assessment?")) return;
+  const handleDeleteAssessment = async id => {
+    if (!window.confirm('Are you sure you want to delete this assessment?'))
+      return;
 
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`https://adhd-assessment-backend.onrender.com/api/assessments/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
+      const token = localStorage.getItem('token');
+      const res = await fetch(
+        `https://adhd-assessment-backend.onrender.com/api/assessments/${id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
-      if (!res.ok) throw new Error("Failed to delete assessment");
-      
+      if (!res.ok) throw new Error('Failed to delete assessment');
+
       setAssessments(prev => prev.filter(a => a._id !== id));
       await fetchProfile(); // Refresh stats
     } catch (err) {
-      alert("Failed to delete: " + err.message);
+      alert('Failed to delete: ' + err.message);
     }
   };
 
-  const getLikelihoodColor = (likelihood) => {
+  const getLikelihoodColor = likelihood => {
     const colors = {
-      "Low": "#4CAF50",
-      "Low-Moderate": "#8BC34A",
-      "Moderate": "#FFD600",
-      "Moderate-High": "#FF9800",
-      "High": "#FF6B6B"
+      Low: '#4CAF50',
+      'Low-Moderate': '#8BC34A',
+      Moderate: '#FFD600',
+      'Moderate-High': '#FF9800',
+      High: '#FF6B6B',
     };
-    return colors[likelihood] || "#9E9E9E";
+    return colors[likelihood] || '#9E9E9E';
   };
 
   if (loading) {
@@ -157,19 +179,16 @@ export default function ProfilePage() {
             )}
           </div>
           <div className="profile-info">
-            <h2>{profile?.user?.displayName || "User"}</h2>
+            <h2>{profile?.user?.displayName || 'User'}</h2>
             <p className="profile-email">{profile?.user?.email}</p>
             <p className="profile-joined">
               <Calendar size={16} />
               Joined {new Date(profile?.user?.createdAt).toLocaleDateString()}
             </p>
           </div>
-          <button 
-            className="edit-btn"
-            onClick={() => setEditing(!editing)}
-          >
+          <button className="edit-btn" onClick={() => setEditing(!editing)}>
             <Edit size={18} />
-            {editing ? "Cancel" : "Edit"}
+            {editing ? 'Cancel' : 'Edit'}
           </button>
         </div>
 
@@ -180,7 +199,9 @@ export default function ProfilePage() {
               <input
                 type="text"
                 value={formData.displayName}
-                onChange={(e) => setFormData({...formData, displayName: e.target.value})}
+                onChange={e =>
+                  setFormData({...formData, displayName: e.target.value})
+                }
                 placeholder="Enter your name"
               />
             </div>
@@ -191,11 +212,13 @@ export default function ProfilePage() {
                 min="5"
                 max="100"
                 value={formData.age}
-                onChange={(e) => setFormData({...formData, age: e.target.value})}
+                onChange={e => setFormData({...formData, age: e.target.value})}
                 placeholder="Enter your age"
               />
             </div>
-            <button type="submit" className="save-btn">Save Changes</button>
+            <button type="submit" className="save-btn">
+              Save Changes
+            </button>
           </form>
         )}
 
@@ -207,10 +230,12 @@ export default function ProfilePage() {
             </div>
             <div className="stat-content">
               <p className="stat-label">Total Assessments</p>
-              <p className="stat-value">{profile?.stats?.totalAssessments || 0}</p>
+              <p className="stat-value">
+                {profile?.stats?.totalAssessments || 0}
+              </p>
             </div>
           </div>
-          
+
           <div className="stat-card">
             <div className="stat-icon">
               <Clock size={24} />
@@ -218,13 +243,13 @@ export default function ProfilePage() {
             <div className="stat-content">
               <p className="stat-label">Last Assessment</p>
               <p className="stat-value">
-                {profile?.stats?.lastAssessment 
+                {profile?.stats?.lastAssessment
                   ? new Date(profile.stats.lastAssessment).toLocaleDateString()
-                  : "Never"}
+                  : 'Never'}
               </p>
             </div>
           </div>
-          
+
           <div className="stat-card">
             <div className="stat-icon">
               <TrendingUp size={24} />
@@ -232,9 +257,10 @@ export default function ProfilePage() {
             <div className="stat-content">
               <p className="stat-label">Average Score</p>
               <p className="stat-value">
-                {profile?.stats?.averageCompositeScore 
+                {profile?.stats?.averageCompositeScore !== undefined &&
+                typeof profile.stats.averageCompositeScore === 'number'
                   ? profile.stats.averageCompositeScore.toFixed(1)
-                  : "N/A"}
+                  : 'N/A'}
               </p>
             </div>
           </div>
@@ -244,14 +270,14 @@ export default function ProfilePage() {
       {/* Assessment History */}
       <div className="history-section">
         <h2 className="history-title">Assessment History</h2>
-        
+
         {assessments.length === 0 ? (
           <div className="empty-state">
             <p>No assessments yet. Take your first test!</p>
           </div>
         ) : (
           <div className="history-list">
-            {assessments.map((assessment) => (
+            {assessments.map(assessment => (
               <div key={assessment._id} className="history-item">
                 <div className="history-date">
                   <Calendar size={18} />
@@ -260,41 +286,48 @@ export default function ProfilePage() {
                     {new Date(assessment.completedAt).toLocaleTimeString()}
                   </span>
                 </div>
-                
+
                 <div className="history-details">
                   <div className="history-score">
                     <span className="score-label">Composite Score</span>
                     <span className="score-value">
-                      {assessment.modelResult?.composite_score?.toFixed(1) || "N/A"}
+                      {assessment.modelResult?.composite_score?.toFixed(1) ||
+                        'N/A'}
                     </span>
                   </div>
-                  
-                  <div 
+
+                  <div
                     className="history-likelihood"
-                    style={{ 
-                      backgroundColor: getLikelihoodColor(assessment.modelResult?.likelihood) + "20",
-                      color: getLikelihoodColor(assessment.modelResult?.likelihood)
+                    style={{
+                      backgroundColor:
+                        getLikelihoodColor(assessment.modelResult?.likelihood) +
+                        '20',
+                      color: getLikelihoodColor(
+                        assessment.modelResult?.likelihood
+                      ),
                     }}
                   >
-                    {assessment.modelResult?.likelihood || "Unknown"}
+                    {assessment.modelResult?.likelihood || 'Unknown'}
                   </div>
-                  
+
                   {assessment.modelResult?.age_group && (
                     <div className="history-age-group">
                       Age Group: {assessment.modelResult.age_group}
                     </div>
                   )}
                 </div>
-                
+
                 <div className="history-actions">
-                  <button 
+                  <button
                     className="view-btn"
-                    onClick={() => window.location.href = `/results?id=${assessment._id}`}
+                    onClick={() =>
+                      (window.location.href = `/results?id=${assessment._id}`)
+                    }
                   >
                     <Eye size={18} />
                     View
                   </button>
-                  <button 
+                  <button
                     className="delete-btn"
                     onClick={() => handleDeleteAssessment(assessment._id)}
                   >
