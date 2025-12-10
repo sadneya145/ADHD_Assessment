@@ -13,6 +13,7 @@ import About from './pages/About/About';
 import Game from './pages/Games/Games';
 import ResultsPage from './pages/Result/Result';
 import Games from './pages/Games/Games';
+import ProfilePage from './pages/Profile/Profile';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
         <Route path='/home/games' element={<Games />} />
         <Route path='/home/about' element={<About />} />
         <Route path="/home/results" element={<ResultsPage />} />
+        <Route path="/home/Profile" element={<ProfilePage/>} />
       </Routes>
     </Router>
   );

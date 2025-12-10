@@ -1,7 +1,6 @@
 """
-ADHD Assessment Model - Final Production Version (Inverted Composite)
-Higher domain scores = Better performance
-Higher composite score = Higher ADHD likelihood (0 = Non-ADHD, 100 = ADHD)
+ADHD Assessment Model - Age-Adjusted Version
+Entry point for Node.js integration
 """
 
 import sys
@@ -11,22 +10,144 @@ import json
 class ADHDAssessmentModel:
     """Rule-based ADHD assessment using cognitive test results"""
     
-    def __init__(self):
-        self.weights = {
-            'attention': 0.35,
-            'impulsivity': 0.40,
-            'working_memory': 0.25
+    def __init__(self, age):
+        self.age = age
+        self.age_group = self._get_age_group(age)
+        self.weights = self._get_age_adjusted_weights()
+        self.thresholds = self._get_age_adjusted_thresholds()
+    
+    def _get_age_group(self, age):
+        """Determine age group"""
+        if 5 <= age <= 8:
+            return '5-8'
+        elif 9 <= age <= 12:
+            return '9-12'
+        elif 13 <= age <= 15:
+            return '13-15'
+        else:
+            return '9-12'  # Default to middle group
+    
+    def _get_age_adjusted_weights(self):
+        """Get domain weights adjusted for age group"""
+        weights_by_age = {
+            '5-8': {
+                'attention': 0.30,
+                'impulsivity': 0.45,
+                'working_memory': 0.25
+            },
+            '9-12': {
+                'attention': 0.35,
+                'impulsivity': 0.40,
+                'working_memory': 0.25
+            },
+            '13-15': {
+                'attention': 0.40,
+                'impulsivity': 0.35,
+                'working_memory': 0.25
+            }
         }
+        return weights_by_age[self.age_group]
+    
+    def _get_age_adjusted_thresholds(self):
+        """Get penalty thresholds adjusted for age group"""
+        thresholds_by_age = {
+            '5-8': {
+                'stroop_acc_severe': 0.40,
+                'stroop_acc_high': 0.50,
+                'stroop_acc_mod': 0.60,
+                'stroop_acc_low': 0.70,
+                'stroop_rt_severe': 2500,
+                'stroop_rt_high': 2000,
+                'stroop_rt_mod': 1500,
+                'nback_acc_severe': 0.30,
+                'nback_acc_high': 0.45,
+                'nback_acc_mod': 0.60,
+                'nback_acc_low': 0.70,
+                'gonogo_acc_severe': 0.50,
+                'gonogo_acc_high': 0.60,
+                'gonogo_acc_mod': 0.70,
+                'gonogo_acc_low': 0.80,
+                'nback_fa_severe': 0.60,
+                'nback_fa_high': 0.50,
+                'nback_fa_mod': 0.40,
+                'nback_fa_low': 0.30,
+                'nback_fa_vlow': 0.20,
+                'nback_fa_min': 0.15,
+                'gonogo_fa_severe': 0.50,
+                'gonogo_fa_high': 0.40,
+                'gonogo_fa_mod': 0.30,
+                'gonogo_fa_low': 0.20,
+                'gonogo_fa_vlow': 0.15,
+                'gonogo_fa_min': 0.10
+            },
+            '9-12': {
+                'stroop_acc_severe': 0.50,
+                'stroop_acc_high': 0.60,
+                'stroop_acc_mod': 0.70,
+                'stroop_acc_low': 0.80,
+                'stroop_rt_severe': 2000,
+                'stroop_rt_high': 1500,
+                'stroop_rt_mod': 1200,
+                'nback_acc_severe': 0.40,
+                'nback_acc_high': 0.55,
+                'nback_acc_mod': 0.70,
+                'nback_acc_low': 0.80,
+                'gonogo_acc_severe': 0.60,
+                'gonogo_acc_high': 0.70,
+                'gonogo_acc_mod': 0.80,
+                'gonogo_acc_low': 0.85,
+                'nback_fa_severe': 0.50,
+                'nback_fa_high': 0.40,
+                'nback_fa_mod': 0.30,
+                'nback_fa_low': 0.20,
+                'nback_fa_vlow': 0.15,
+                'nback_fa_min': 0.10,
+                'gonogo_fa_severe': 0.40,
+                'gonogo_fa_high': 0.30,
+                'gonogo_fa_mod': 0.20,
+                'gonogo_fa_low': 0.15,
+                'gonogo_fa_vlow': 0.10,
+                'gonogo_fa_min': 0.05
+            },
+            '13-15': {
+                'stroop_acc_severe': 0.55,
+                'stroop_acc_high': 0.65,
+                'stroop_acc_mod': 0.75,
+                'stroop_acc_low': 0.85,
+                'stroop_rt_severe': 1800,
+                'stroop_rt_high': 1400,
+                'stroop_rt_mod': 1100,
+                'nback_acc_severe': 0.45,
+                'nback_acc_high': 0.60,
+                'nback_acc_mod': 0.75,
+                'nback_acc_low': 0.85,
+                'gonogo_acc_severe': 0.65,
+                'gonogo_acc_high': 0.75,
+                'gonogo_acc_mod': 0.85,
+                'gonogo_acc_low': 0.90,
+                'nback_fa_severe': 0.45,
+                'nback_fa_high': 0.35,
+                'nback_fa_mod': 0.25,
+                'nback_fa_low': 0.18,
+                'nback_fa_vlow': 0.12,
+                'nback_fa_min': 0.08,
+                'gonogo_fa_severe': 0.35,
+                'gonogo_fa_high': 0.25,
+                'gonogo_fa_mod': 0.18,
+                'gonogo_fa_low': 0.12,
+                'gonogo_fa_vlow': 0.08,
+                'gonogo_fa_min': 0.04
+            }
+        }
+        return thresholds_by_age[self.age_group]
     
     def extract_features(self, test_data):
         """Extract and calculate features from raw test data"""
-        # Stroop Task
         stroop_score = test_data.get('stroop_score')
         stroop_total = test_data.get('stroop_total', 10)
         stroop_accuracy = (stroop_score / stroop_total) if stroop_score is not None else None
         stroop_rt = test_data.get('stroop_avg_rt')
         
-        # N-Back Task
         nback_hits = test_data.get('nback_hits')
         nback_misses = test_data.get('nback_misses')
         nback_total = (nback_hits + nback_misses) if (nback_hits is not None and nback_misses is not None) else None
@@ -39,7 +160,6 @@ class ADHDAssessmentModel:
         ) else None
         nback_fa_rate = (nback_false_alarms / nback_total_nontargets) if nback_total_nontargets and nback_total_nontargets > 0 else None
         
-        # Go/No-Go Task
         gonogo_hits = test_data.get('gonogo_hits')
         gonogo_misses = test_data.get('gonogo_misses')
         gonogo_total = (gonogo_hits + gonogo_misses) if (gonogo_hits is not None and gonogo_misses is not None) else None
@@ -67,47 +187,48 @@ class ADHDAssessmentModel:
     def calculate_attention_score(self, features):
         """Calculate attention score (0-100) - Higher is better"""
         score = 100
+        t = self.thresholds
         
         if features.get('stroop_accuracy') is not None:
             acc = features['stroop_accuracy']
-            if acc < 0.5:
+            if acc < t['stroop_acc_severe']:
                 score -= 35
-            elif acc < 0.6:
+            elif acc < t['stroop_acc_high']:
                 score -= 28
-            elif acc < 0.7:
+            elif acc < t['stroop_acc_mod']:
                 score -= 20
-            elif acc < 0.8:
+            elif acc < t['stroop_acc_low']:
                 score -= 10
         
         if features.get('stroop_rt') is not None:
             rt = features['stroop_rt']
-            if rt > 2000:
+            if rt > t['stroop_rt_severe']:
                 score -= 15
-            elif rt > 1500:
+            elif rt > t['stroop_rt_high']:
                 score -= 10
-            elif rt > 1200:
+            elif rt > t['stroop_rt_mod']:
                 score -= 5
         
         if features.get('nback_accuracy') is not None:
             acc = features['nback_accuracy']
-            if acc < 0.4:
+            if acc < t['nback_acc_severe']:
                 score -= 25
-            elif acc < 0.55:
+            elif acc < t['nback_acc_high']:
                 score -= 18
-            elif acc < 0.7:
+            elif acc < t['nback_acc_mod']:
                 score -= 10
-            elif acc < 0.8:
+            elif acc < t['nback_acc_low']:
                 score -= 5
         
         if features.get('gonogo_accuracy') is not None:
             acc = features['gonogo_accuracy']
-            if acc < 0.6:
+            if acc < t['gonogo_acc_severe']:
                 score -= 25
-            elif acc < 0.7:
+            elif acc < t['gonogo_acc_high']:
                 score -= 18
-            elif acc < 0.8:
+            elif acc < t['gonogo_acc_mod']:
                 score -= 12
-            elif acc < 0.85:
+            elif acc < t['gonogo_acc_low']:
                 score -= 6
         
         return max(score, 0)
@@ -115,35 +236,36 @@ class ADHDAssessmentModel:
     def calculate_impulsivity_score(self, features):
         """Calculate impulse control score (0-100) - Higher is better"""
         score = 100
+        t = self.thresholds
         
         if features.get('nback_fa_rate') is not None:
             fa_rate = features['nback_fa_rate']
-            if fa_rate > 0.5:
+            if fa_rate > t['nback_fa_severe']:
                 score -= 50
-            elif fa_rate > 0.4:
+            elif fa_rate > t['nback_fa_high']:
                 score -= 42
-            elif fa_rate > 0.3:
+            elif fa_rate > t['nback_fa_mod']:
                 score -= 32
-            elif fa_rate > 0.2:
+            elif fa_rate > t['nback_fa_low']:
                 score -= 20
-            elif fa_rate > 0.15:
+            elif fa_rate > t['nback_fa_vlow']:
                 score -= 12
-            elif fa_rate > 0.1:
+            elif fa_rate > t['nback_fa_min']:
                 score -= 6
         
         if features.get('gonogo_fa_rate') is not None:
             fa_rate = features['gonogo_fa_rate']
-            if fa_rate > 0.4:
+            if fa_rate > t['gonogo_fa_severe']:
                 score -= 50
-            elif fa_rate > 0.3:
+            elif fa_rate > t['gonogo_fa_high']:
                 score -= 40
-            elif fa_rate > 0.2:
+            elif fa_rate > t['gonogo_fa_mod']:
                 score -= 28
-            elif fa_rate > 0.15:
+            elif fa_rate > t['gonogo_fa_low']:
                 score -= 18
-            elif fa_rate > 0.1:
+            elif fa_rate > t['gonogo_fa_vlow']:
                 score -= 10
-            elif fa_rate > 0.05:
+            elif fa_rate > t['gonogo_fa_min']:
                 score -= 5
         
         return max(score, 0)
@@ -188,17 +310,14 @@ class ADHDAssessmentModel:
         impulsivity_score = self.calculate_impulsivity_score(features)
         working_memory_score = self.calculate_working_memory_score(features)
         
-        # Normal composite (higher = better)
         normal_composite = (
             attention_score * self.weights['attention'] +
             impulsivity_score * self.weights['impulsivity'] +
             working_memory_score * self.weights['working_memory']
         )
         
-        # Invert so higher = higher ADHD likelihood
         composite_score = round(100 - normal_composite, 2)
         
-        # Interpret thresholds (now high = ADHD)
         if composite_score > 75:
             likelihood = 'High'
             risk_level = 4
@@ -219,6 +338,7 @@ class ADHDAssessmentModel:
             'composite_score': composite_score,
             'likelihood': likelihood,
             'risk_level': risk_level,
+            'age_group': self.age_group,
             'domain_scores': {
                 'attention': round(attention_score, 2),
                 'impulsivity': round(impulsivity_score, 2),
@@ -239,6 +359,12 @@ def main():
         
         test_data = json.loads(raw_input)
         
+        # Extract age from input (required)
+        age = test_data.get("age")
+        if age is None:
+            print(json.dumps({"error": "Age is required"}))
+            return
+        
         formatted_input = {
             "stroop_score": test_data.get("stroop", {}).get("score"),
             "stroop_total": test_data.get("stroop", {}).get("totalRounds", 10),
@@ -254,7 +380,7 @@ def main():
             "gonogo_avg_rt": test_data.get("goNoGo", {}).get("avgReactionTime", 0)
         }
         
-        model = ADHDAssessmentModel()
+        model = ADHDAssessmentModel(age)
         result = model.predict(formatted_input)
         
         print(json.dumps(result))

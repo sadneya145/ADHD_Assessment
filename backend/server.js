@@ -37,6 +37,8 @@ const userSchema = new mongoose.Schema({
   googleId: {type: String},
   displayName: {type: String},
   photoURL: {type: String},
+  age: { type: Number },
+  dateOfBirth: { type: Date },
   createdAt: {type: Date, default: Date.now},
   assessments: [{type: mongoose.Schema.Types.ObjectId, ref: 'Assessment'}],
 });
@@ -139,23 +141,29 @@ const MouseData = mongoose.model('MouseData', MouseDataSchema);
 
 // ==================== MIDDLEWARE ====================
 
-// Auth Middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({error: 'Access token required'});
+    return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(403).json({error: 'Invalid or expired token'});
+      return res.status(403).json({ error: 'Invalid or expired token' });
     }
-    req.user = user;
+
+    // FIX: Map actual field from your token
+    req.user = {
+      id: decoded.userId,     // <-- THIS is the correct ID
+      email: decoded.email
+    };
+
     next();
   });
 };
+
 
 // ==================== AUTH ROUTES ====================
 
@@ -200,6 +208,106 @@ app.post('/api/auth/register', async (req, res) => {
     res.status(500).json({error: error.message});
   }
 });
+
+// ==================== PROFILE ROUTES ====================
+
+// GET PROFILE + STATS
+app.get('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('assessments');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Stats
+    const totalAssessments = user.assessments.length;
+
+    const lastAssessment = totalAssessments
+      ? user.assessments[user.assessments.length - 1].completedAt
+      : null;
+
+    const avgComposite =
+      totalAssessments > 0
+        ? (
+            user.assessments.reduce(
+              (sum, a) => sum + (a.modelResult?.composite_score || 0),
+              0
+            ) / totalAssessments
+          ).toFixed(2)
+        : null;
+
+    res.json({
+      user,
+      stats: {
+        totalAssessments,
+        lastAssessment,
+        averageCompositeScore: avgComposite,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
+
+// UPDATE PROFILE
+app.put('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    const { displayName, age } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { displayName, age },
+      { new: true }
+    );
+
+    res.json({ message: 'Profile updated', user });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+
+// GET ASSESSMENT HISTORY
+app.get('/api/assessments/history', authenticateToken, async (req, res) => {
+  const limit = parseInt(req.query.limit) || 20;
+
+  try {
+    const assessments = await Assessment.find({ userId: req.user.id })
+      .sort({ completedAt: -1 })
+      .limit(limit);
+
+    res.json({ assessments });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
+
+// DELETE ASSESSMENT
+app.delete('/api/assessments/:id', authenticateToken, async (req, res) => {
+  try {
+    const assessment = await Assessment.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
+
+    if (!assessment) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    // Remove reference from User.assessments array
+    await User.findByIdAndUpdate(req.user.id, {
+      $pull: { assessments: req.params.id },
+    });
+
+    res.json({ message: 'Assessment deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete assessment' });
+  }
+});
+
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
@@ -273,125 +381,7 @@ app.post('/api/auth/google', async (req, res) => {
 
 // ==================== ASSESSMENT ROUTES ====================
 const runPythonAssessment = require('./runGames');
-// app.post('/api/assessments', authenticateToken, async (req, res) => {
-//   try {
-//     console.log("📥 Received assessment payload:", JSON.stringify(req.body, null, 2));
 
-//     const { questionnaire, mouseTracking } = req.body;
-//     const taskPerformance = req.body.taskPerformance || {};
-
-//     const goNoGo = taskPerformance.goNoGo || req.body.goNoGo || null;
-//     const nBack = taskPerformance.nBack || req.body.nBack || null;
-//     const stroop = taskPerformance.stroop || req.body.stroop || null;
-
-//     let modelResult = req.body.modelResult || null;
-
-//     if (!modelResult || Object.keys(modelResult).length === 0) {
-//       console.log("⚙️ Running Python model (no modelResult provided)");
-//       const pythonInput = {};
-//       if (goNoGo) pythonInput.goNoGo = goNoGo;
-//       if (nBack) pythonInput.nBack = nBack;
-//       if (stroop) pythonInput.stroop = stroop;
-//       modelResult = await runPythonAssessment(pythonInput);
-//     }
-
-//     const cleanModelResult = {
-//       composite_score: Number(modelResult?.composite_score ?? 0),
-//       likelihood: modelResult?.likelihood || "UNKNOWN",
-//       risk_level: modelResult?.risk_level || "unknown",
-//       domain_scores: {
-//         attention: Number(modelResult?.domain_scores?.attention ?? 0),
-//         impulsivity: Number(modelResult?.domain_scores?.impulsivity ?? 0),
-//         working_memory: Number(modelResult?.domain_scores?.working_memory ?? 0),
-//       },
-//       features: modelResult?.features || {},
-//     };
-
-//     console.log("🎮 Parsed task data:", { goNoGo, nBack, stroop, mouseTracking, modelResult: cleanModelResult });
-
-//     const assessment = new Assessment({
-//       userId: req.user.userId,
-//       questionnaire,
-//       goNoGo,
-//       nBack,
-//       stroop,
-//       mouseTracking,
-//       modelResult: cleanModelResult,
-//       overallResult: {
-//         finalClassification: cleanModelResult.likelihood,
-//         confidence: cleanModelResult.composite_score,
-//         recommendations: [
-//           `Attention Score: ${cleanModelResult.domain_scores.attention}`,
-//           `Impulsivity Score: ${cleanModelResult.domain_scores.impulsivity}`,
-//           `Working Memory Score: ${cleanModelResult.domain_scores.working_memory}`,
-//         ],
-//       },
-//     });
-
-//     const saved = await assessment.save();
-//     await User.findByIdAndUpdate(req.user.userId, { $push: { assessments: saved._id } });
-
-//     console.log("✅ Saved Assessment:", saved.modelResult);
-//     res.status(201).json({ message: "✅ Assessment saved successfully", assessment: saved });
-//   } catch (error) {
-//     console.error("❌ Error saving assessment:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// });
-
-// app.get('/api/analysis/latest', authenticateToken, async (req, res) => {
-//   try {
-//     // Fetch the latest assessment that has a modelResult
-//     const result = await Assessment.findOne({
-//       userId: req.user.userId,
-//       modelResult: {$exists: true, $ne: {}}, // only with modelResult
-//     })
-//       .sort({createdAt: -1}) // newest first
-//       .lean();
-
-//     if (!result) {
-//       return res
-//         .status(404)
-//         .json({error: 'No assessments with model results found'});
-//     }
-
-//     // Extract domain scores safely
-//     const modelResult = result.modelResult || {};
-
-//     const domain_scores = {
-//       attention: Number(modelResult.domain_scores?.attention ?? 0),
-//       impulsivity: Number(modelResult.domain_scores?.impulsivity ?? 0),
-//       working_memory: Number(modelResult.domain_scores?.working_memory ?? 0),
-//     };
-
-//     // Explanations / recommendations
-//     const explanations = {
-//       attention: `Attention Score: ${domain_scores.attention}`,
-//       impulsivity: `Impulsivity Score: ${domain_scores.impulsivity}`,
-//       working_memory: `Working Memory Score: ${domain_scores.working_memory}`,
-//     };
-
-//     // Composite score and likelihood
-//     const composite_score = Number(modelResult.composite_score ?? 0);
-//     const likelihood = modelResult.likelihood ?? 'Unknown';
-//     const risk_level = (likelihood ?? 'unknown').toLowerCase();
-
-//     // Final response
-//     const response = {
-//       composite_score,
-//       likelihood,
-//       risk_level,
-//       domain_scores,
-//       explanations,
-//     };
-
-//     console.log('Returning latest assessment:', response); // optional debug
-//     res.json(response);
-//   } catch (err) {
-//     console.error('Error fetching latest assessment:', err);
-//     res.status(500).json({error: 'Server error'});
-//   }
-// });
 
 // ==================== FIXED ASSESSMENT ROUTE ====================
 app.post('/api/assessments', authenticateToken, async (req, res) => {
@@ -564,31 +554,6 @@ app.get('/api/assessments/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// ==================== MOUSE TRACKING ANALYSIS ====================
-
-// app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
-//   try {
-//     const mouseData = req.body;
-
-//     // Save raw mouse data
-//     const mouseRecord = new MouseData({
-//       userId: req.user.userId,
-//       mouseData,
-//       sessionId: Date.now().toString()
-//     });
-
-//     // Perform analysis
-//     const analysis = analyzeMouseMovement(mouseData);
-//     mouseRecord.analysis = analysis;
-
-//     await mouseRecord.save();
-
-//     res.json(analysis);
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// });
-// ✅ POST Mouse Tracking Analysis
 app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
   try {
     const mouseData = req.body;
