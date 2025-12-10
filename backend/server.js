@@ -410,24 +410,51 @@ const runPythonAssessment = require('./runGames');
 
 
 // ==================== FIXED ASSESSMENT ROUTE ====================
-// ==================== FIXED ASSESSMENT ROUTE ====================
+
 app.post('/api/assessments', authenticateToken, async (req, res) => {
   try {
-    console.log("📥 Received assessment payload:", JSON.stringify(req.body, null, 2));
+    console.log('\n' + '='.repeat(80));
+    console.log('📥 NEW ASSESSMENT REQUEST');
+    console.log('='.repeat(80));
+    console.log('📊 Request body keys:', Object.keys(req.body));
 
-    // Handle both old format (direct task data) and new format (taskPerformance wrapper)
+    // Extract task data
     const taskPerformance = req.body.taskPerformance || {};
-    
-    // Extract task data - check both locations
     const goNoGo = taskPerformance.goNoGo || req.body.goNoGo || null;
     const nBack = taskPerformance.nBack || req.body.nBack || null;
     const stroop = taskPerformance.stroop || req.body.stroop || null;
-    
-    // Extract other data
     const questionnaire = req.body.questionnaire || null;
     const mouseTracking = req.body.mouseTracking || null;
-    const age = req.body.age || 12; // Default age if not provided
     let modelResult = req.body.modelResult || null;
+
+    // Get age from request or user profile
+    let age = req.body.age || 12;
+    
+    if (!req.body.age) {
+      try {
+        const user = await User.findById(req.user.userId).select('age dateOfBirth');
+        if (user?.age) {
+          age = user.age;
+          console.log(`📅 Using age from user profile: ${age}`);
+        } else if (user?.dateOfBirth) {
+          const birthDate = new Date(user.dateOfBirth);
+          const today = new Date();
+          age = today.getFullYear() - birthDate.getFullYear();
+          console.log(`📅 Calculated age from DOB: ${age}`);
+        }
+      } catch (err) {
+        console.log('⚠️ Could not fetch user age, using default: 12');
+      }
+    }
+
+    console.log('🎮 Task data present:', {
+      goNoGo: goNoGo ? '✅' : '❌',
+      nBack: nBack ? '✅' : '❌',
+      stroop: stroop ? '✅' : '❌',
+      questionnaire: questionnaire ? '✅' : '❌',
+      mouseTracking: mouseTracking ? '✅' : '❌',
+      age: age
+    });
 
     // Validate that we have at least some data
     if (!goNoGo && !nBack && !stroop && !questionnaire && !mouseTracking && !modelResult) {
@@ -437,35 +464,43 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       });
     }
 
-    // If no modelResult provided AND we have task data, run Python assessment
+    // If no modelResult provided, run Python assessment
     if (!modelResult || Object.keys(modelResult).length === 0) {
-      // Check if we have enough data for Python model
       const hasTaskData = goNoGo || nBack || stroop;
       
       if (hasTaskData) {
-        console.log("⚙️ Running Python model");
+        console.log('⚙️ Running Python model with age:', age);
+        
+        // Prepare input for Python
         const pythonInput = { age: age };
         if (goNoGo) pythonInput.goNoGo = goNoGo;
         if (nBack) pythonInput.nBack = nBack;
         if (stroop) pythonInput.stroop = stroop;
         
+        console.log('📤 Sending to Python:', JSON.stringify(pythonInput, null, 2));
+        
         try {
           modelResult = await runPythonAssessment(pythonInput);
-          console.log("✅ Python model result:", modelResult);
+          console.log('✅ Python returned:', JSON.stringify(modelResult, null, 2));
+          
+          if (modelResult.error) {
+            throw new Error(`Python model error: ${modelResult.error}`);
+          }
         } catch (err) {
-          console.error("❌ Python assessment failed:", err);
-          // Create a more informative fallback
-          modelResult = createFallbackModelResult(goNoGo, nBack, stroop);
+          console.error('❌ Python assessment failed:', err);
+          console.log('⚠️ Using JavaScript fallback calculation');
+          
+          // Fallback calculation
+          modelResult = calculateFallbackScores(goNoGo, nBack, stroop, age);
         }
       } else {
-        // No task data, create minimal result
+        console.log('⚠️ No task data available, creating minimal result');
         modelResult = {
           composite_score: 0,
-          likelihood: "INCOMPLETE",
-          risk_level: "unknown",
+          likelihood: 'INCOMPLETE',
+          risk_level: 'unknown',
           domain_scores: { attention: 0, impulsivity: 0, working_memory: 0 },
-          features: {},
-          note: "Insufficient task data for assessment"
+          features: {}
         };
       }
     }
@@ -473,8 +508,8 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
     // Clean and validate modelResult
     const cleanModelResult = {
       composite_score: Number(modelResult?.composite_score ?? 0),
-      likelihood: modelResult?.likelihood || "UNKNOWN",
-      risk_level: modelResult?.risk_level || "unknown",
+      likelihood: modelResult?.likelihood || 'UNKNOWN',
+      risk_level: modelResult?.risk_level || 'unknown',
       age_group: modelResult?.age_group || null,
       domain_scores: {
         attention: Number(modelResult?.domain_scores?.attention ?? 0),
@@ -484,7 +519,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       features: modelResult?.features || {},
     };
 
-    console.log("🎮 Final model result:", cleanModelResult);
+    console.log('📊 Final cleaned model result:', cleanModelResult);
 
     // Create assessment document
     const assessment = new Assessment({
@@ -498,7 +533,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       overallResult: {
         finalClassification: cleanModelResult.likelihood,
         confidence: cleanModelResult.composite_score,
-        recommendations: generateRecommendationsFromScores(cleanModelResult),
+        recommendations: generateRecommendations(cleanModelResult),
       },
     });
 
@@ -510,16 +545,17 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       { $push: { assessments: saved._id } }
     );
 
-    console.log("✅ Assessment saved:", saved._id);
+    console.log('✅ Assessment saved with ID:', saved._id);
+    console.log('='.repeat(80) + '\n');
 
     res.status(201).json({ 
-      message: "✅ Assessment saved successfully", 
+      message: '✅ Assessment saved successfully', 
       assessment: saved 
     });
 
   } catch (error) {
-    console.error("❌ Error saving assessment:", error);
-    console.error("Stack trace:", error.stack);
+    console.error('❌ Assessment error:', error);
+    console.error('Stack:', error.stack);
     res.status(500).json({ 
       error: error.message,
       details: error.stack 
@@ -527,89 +563,118 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
   }
 });
 
-// Helper function to create fallback results when Python fails
-function createFallbackModelResult(goNoGo, nBack, stroop) {
-  let attention = 0;
-  let impulsivity = 0;
-  let workingMemory = 0;
-  let count = 0;
+// ==================== HELPER FUNCTIONS ====================
 
-  // Simple heuristic calculations
-  if (stroop) {
+function calculateFallbackScores(goNoGo, nBack, stroop, age) {
+  console.log('🔧 Calculating fallback scores...');
+  
+  let attention = 50;
+  let impulsivity = 50;
+  let workingMemory = 50;
+
+  // Stroop scoring
+  if (stroop && stroop.score !== null && stroop.totalRounds) {
     const stroopAcc = (stroop.score / stroop.totalRounds) * 100;
     attention = stroopAcc;
     workingMemory = stroopAcc * 0.8;
-    count++;
+    console.log(`  Stroop: ${stroop.score}/${stroop.totalRounds} = ${stroopAcc.toFixed(1)}%`);
   }
 
-  if (goNoGo) {
-    const total = goNoGo.hits + goNoGo.misses + goNoGo.falseAlarms;
+  // Go/No-Go scoring
+  if (goNoGo && goNoGo.hits !== null) {
+    const total = (goNoGo.hits || 0) + (goNoGo.misses || 0);
     if (total > 0) {
       const gonogoAcc = (goNoGo.hits / total) * 100;
-      attention = count > 0 ? (attention + gonogoAcc) / 2 : gonogoAcc;
-      const falseAlarmRate = (goNoGo.falseAlarms / total) * 100;
-      impulsivity = 100 - falseAlarmRate;
-      count++;
+      attention = stroop ? (attention + gonogoAcc) / 2 : gonogoAcc;
+      
+      const totalNogo = (goNoGo.falseAlarms || 0) + (goNoGo.correctRejections || 0);
+      if (totalNogo > 0) {
+        const faRate = (goNoGo.falseAlarms || 0) / totalNogo;
+        impulsivity = 100 - (faRate * 100);
+      }
+      console.log(`  Go/No-Go: Accuracy=${gonogoAcc.toFixed(1)}%, FA Rate=${((goNoGo.falseAlarms||0)/totalNogo*100).toFixed(1)}%`);
     }
   }
 
-  if (nBack) {
-    const total = nBack.hits + nBack.misses;
+  // N-Back scoring
+  if (nBack && nBack.hits !== null) {
+    const total = (nBack.hits || 0) + (nBack.misses || 0);
     if (total > 0) {
       const nbackAcc = (nBack.hits / total) * 100;
-      workingMemory = count > 0 ? (workingMemory + nbackAcc) / 2 : nbackAcc;
-      const nbackFalseAlarmRate = nBack.falseAlarms ? 
-        (nBack.falseAlarms / (nBack.falseAlarms + (nBack.correctRejections || 0))) * 100 : 0;
-      impulsivity = count > 0 ? (impulsivity + (100 - nbackFalseAlarmRate)) / 2 : (100 - nbackFalseAlarmRate);
-      count++;
+      workingMemory = nbackAcc;
+      
+      const totalNontarget = (nBack.falseAlarms || 0) + (nBack.correctRejections || 0);
+      if (totalNontarget > 0) {
+        const faRate = (nBack.falseAlarms || 0) / totalNontarget;
+        impulsivity = stroop || goNoGo ? (impulsivity + (100 - faRate * 100)) / 2 : (100 - faRate * 100);
+      }
+      console.log(`  N-Back: Accuracy=${nbackAcc.toFixed(1)}%`);
     }
   }
 
-  const composite = 100 - ((attention + impulsivity + workingMemory) / 3);
+  // Calculate composite (inverted - higher scores = lower ADHD risk)
+  const avgPerformance = (attention + impulsivity + workingMemory) / 3;
+  const composite = 100 - avgPerformance;
+
+  // Determine likelihood
+  let likelihood = 'Low';
+  let risk_level = 'low';
   
-  let likelihood = "Low";
-  let risk_level = "low";
-  if (composite > 60) {
-    likelihood = "High";
-    risk_level = "high";
+  if (composite > 75) {
+    likelihood = 'High';
+    risk_level = 'high';
+  } else if (composite > 60) {
+    likelihood = 'Moderate-High';
+    risk_level = 'moderate';
   } else if (composite > 45) {
-    likelihood = "Moderate";
-    risk_level = "moderate";
+    likelihood = 'Moderate';
+    risk_level = 'moderate';
+  } else if (composite > 30) {
+    likelihood = 'Low-Moderate';
+    risk_level = 'low';
   }
 
-  return {
+  const result = {
     composite_score: Math.round(composite * 100) / 100,
     likelihood: likelihood,
     risk_level: risk_level,
+    age_group: age >= 13 ? '13-15' : age >= 9 ? '9-12' : '5-8',
     domain_scores: {
       attention: Math.round(attention * 100) / 100,
       impulsivity: Math.round(impulsivity * 100) / 100,
       working_memory: Math.round(workingMemory * 100) / 100
     },
     features: {
-      note: "Calculated using fallback heuristics"
+      note: 'Calculated using JavaScript fallback'
     }
   };
+
+  console.log('✅ Fallback result:', result);
+  return result;
 }
 
-// Helper function to generate recommendations based on scores
-function generateRecommendationsFromScores(modelResult) {
+function generateRecommendations(modelResult) {
   const recommendations = [];
   const { attention, impulsivity, working_memory } = modelResult.domain_scores;
   
-  recommendations.push(`Attention Score: ${attention}%`);
-  recommendations.push(`Impulsivity Score: ${impulsivity}%`);
-  recommendations.push(`Working Memory Score: ${working_memory}%`);
+  recommendations.push(`Attention: ${attention}%`);
+  recommendations.push(`Impulse Control: ${impulsivity}%`);
+  recommendations.push(`Working Memory: ${working_memory}%`);
 
-  if (modelResult.likelihood === "High") {
-    recommendations.push("Consider consulting with a healthcare professional for a comprehensive evaluation");
-    recommendations.push("Implement structured daily routines and organizational systems");
-  } else if (modelResult.likelihood === "Moderate" || modelResult.likelihood === "Moderate-High") {
-    recommendations.push("Monitor symptoms and consider professional consultation if they persist");
-    recommendations.push("Practice mindfulness and stress-reduction techniques");
+  const likelihood = modelResult.likelihood;
+  
+  if (likelihood === 'High') {
+    recommendations.push('⚠️ Consider professional evaluation');
+    recommendations.push('📋 Implement structured routines');
+    recommendations.push('🧘 Practice mindfulness techniques');
+  } else if (likelihood === 'Moderate-High' || likelihood === 'Moderate') {
+    recommendations.push('👀 Monitor symptoms regularly');
+    recommendations.push('📝 Use organizational tools');
+    recommendations.push('💪 Practice self-management strategies');
   } else {
-    recommendations.push("Continue maintaining healthy habits and routines");
-    recommendations.push("Regular check-ups with healthcare provider recommended");
+    recommendations.push('✅ Continue healthy habits');
+    recommendations.push('🏃 Maintain regular exercise');
+    recommendations.push('😴 Ensure adequate sleep');
   }
 
   return recommendations;
