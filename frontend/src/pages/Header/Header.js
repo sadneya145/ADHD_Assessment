@@ -6,7 +6,6 @@ const Header = () => {
     const navigate = useNavigate();
     const [hoveredLink, setHoveredLink] = useState(null);
     const [user, setUser] = useState(null);
-    const [showDropdown, setShowDropdown] = useState(false);
     const [loading, setLoading] = useState(true);
 
     // Fetch user data on mount
@@ -52,17 +51,6 @@ const Header = () => {
         { to: "/home/about", label: "About", emoji: "ℹ️", color: "#A8E6CF" }
     ];
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        setUser(null);
-        setShowDropdown(false);
-        navigate('/');
-    };
-
-    const handleProfileClick = () => {
-        setShowDropdown(false);
-        navigate('/home/Profile');
-    };
 
     return (
         <header className="header">
@@ -116,42 +104,11 @@ const Header = () => {
                             <div className="star-badge">⭐</div>
                             <div 
                                 className="user-info"
-                                onClick={() => setShowDropdown(!showDropdown)}
-                                style={{ cursor: 'pointer', position: 'relative' }}
+                                onClick={() => navigate('/home/profile')}
+                                style={{ cursor: 'pointer' }}
                             >
                                 <img src={user.avatar} alt={user.name} className="user-avatar" />
                                 <span className="user-name">{user.name.split(' ')[0]}</span>
-                                <span className="dropdown-arrow">▼</span>
-
-                                {/* Dropdown Menu */}
-                                {showDropdown && (
-                                    <div className="user-dropdown">
-                                        <div className="dropdown-header">
-                                            <img src={user.avatar} alt={user.name} className="dropdown-avatar" />
-                                            <div className="dropdown-info">
-                                                <div className="dropdown-name">{user.name}</div>
-                                                <div className="dropdown-email">{user.email}</div>
-                                            </div>
-                                        </div>
-                                        <div className="dropdown-divider"></div>
-                                        <button className="dropdown-item" onClick={handleProfileClick}>
-                                            <span className="dropdown-icon">👤</span>
-                                            My Profile
-                                        </button>
-                                        <button className="dropdown-item" onClick={() => {
-                                            setShowDropdown(false);
-                                            navigate('/results');
-                                        }}>
-                                            <span className="dropdown-icon">📊</span>
-                                            My Results
-                                        </button>
-                                        <div className="dropdown-divider"></div>
-                                        <button className="dropdown-item logout" onClick={handleLogout}>
-                                            <span className="dropdown-icon">🚪</span>
-                                            Logout
-                                        </button>
-                                    </div>
-                                )}
                             </div>
                         </>
                     ) : (
@@ -166,14 +123,6 @@ const Header = () => {
             {/* Floating decorative elements */}
             <div className="floating-circle-1"></div>
             <div className="floating-circle-2"></div>
-
-            {/* Click outside to close dropdown */}
-            {showDropdown && (
-                <div 
-                    className="dropdown-overlay" 
-                    onClick={() => setShowDropdown(false)}
-                ></div>
-            )}
         </header>
     );
 };
