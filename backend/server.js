@@ -710,39 +710,110 @@ app.get('/api/assessments/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// ==================== MOUSE ANALYSIS ENDPOINT (FIXED) ====================
+// Replace your current /api/analyze/mouse endpoint with this
 
 app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
   try {
+    console.log('\n🐭 ==================== MOUSE ANALYSIS REQUEST ====================');
+    console.log('📊 Request body type:', Array.isArray(req.body) ? 'Array' : typeof req.body);
+    console.log('📊 Data points received:', Array.isArray(req.body) ? req.body.length : 'N/A');
+    
     const mouseData = req.body;
-    const analysis = await analyzeMouseWithPython(mouseData);
 
-    const mouseRecord = new MouseData({
-      userId: req.user.userId,
-      mouseData,
-      sessionId: Date.now().toString(),
-      analysis: {
-        adhd_type: analysis.adhd_type,
-        confidence: analysis.confidence,
-        features: analysis.classifications,
-      },
+    // Validate input
+    if (!Array.isArray(mouseData) || mouseData.length === 0) {
+      console.error('❌ Invalid mouse data format');
+      return res.status(400).json({
+        error: 'Invalid mouse data format. Expected array of mouse positions.',
+        adhd_type: 'Error',
+        confidence: 0
+      });
+    }
+
+    // Check data structure
+    const firstPoint = mouseData[0];
+    if (!firstPoint || typeof firstPoint.x !== 'number' || typeof firstPoint.y !== 'number') {
+      console.error('❌ Invalid data point structure:', firstPoint);
+      return res.status(400).json({
+        error: 'Invalid data point structure. Each point must have x, y, and time properties.',
+        adhd_type: 'Error',
+        confidence: 0
+      });
+    }
+
+    console.log('✅ Mouse data validated');
+    console.log('📍 Sample points:', {
+      first: firstPoint,
+      last: mouseData[mouseData.length - 1]
     });
 
-    await mouseRecord.save();
-    res.json(analysis);
+    // Run Python analysis
+    let analysis;
+    try {
+      analysis = await analyzeMouseWithPython(mouseData);
+      console.log('✅ Python analysis completed:', analysis);
+    } catch (pythonError) {
+      console.error('❌ Python analysis failed:', pythonError.message);
+      
+      // Fallback to JavaScript analysis
+      console.log('⚠️ Using JavaScript fallback analysis');
+      analysis = analyzeMouseMovementJS(mouseData);
+    }
+
+    // Save to database
+    try {
+      const mouseRecord = new MouseData({
+        userId: req.user.userId,
+        mouseData: mouseData,
+        sessionId: Date.now().toString(),
+        analysis: {
+          adhd_type: analysis.adhd_type,
+          confidence: analysis.confidence,
+          features: analysis.classifications || {},
+        },
+      });
+
+      await mouseRecord.save();
+      console.log('✅ Mouse data saved to database');
+    } catch (dbError) {
+      console.error('⚠️ Failed to save to database:', dbError.message);
+      // Don't fail the request if DB save fails
+    }
+
+    console.log('🐭 ==================== MOUSE ANALYSIS COMPLETE ====================\n');
+    
+    // Return analysis result
+    res.json({
+      adhd_type: analysis.adhd_type,
+      confidence: analysis.confidence,
+      classifications: analysis.classifications || {},
+      raw_metrics: analysis.raw_metrics || {}
+    });
+
   } catch (error) {
-    console.error('❌ Mouse analysis error:', error);
-    res.status(500).json({error: error.message});
+    console.error('❌ Mouse analysis endpoint error:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({
+      error: 'Server error: ' + error.message,
+      adhd_type: 'Error',
+      confidence: 0
+    });
   }
 });
 
-// ==================== HELPER FUNCTIONS ====================
+// ==================== JAVASCRIPT FALLBACK ANALYSIS ====================
+// Simpler JavaScript-based analysis if Python fails
 
-function analyzeMouseMovement(mouseData) {
+function analyzeMouseMovementJS(mouseData) {
+  console.log('🔧 Running JavaScript fallback analysis');
+  
   if (!mouseData || mouseData.length < 10) {
     return {
       adhd_type: 'Insufficient Data',
       confidence: 0,
       classifications: {},
+      raw_metrics: {}
     };
   }
 
@@ -750,6 +821,7 @@ function analyzeMouseMovement(mouseData) {
   const velocities = [];
   const accelerations = [];
   const directionChanges = [];
+  let totalDistance = 0;
 
   for (let i = 1; i < mouseData.length; i++) {
     const dt = mouseData[i].time - mouseData[i - 1].time;
@@ -757,11 +829,14 @@ function analyzeMouseMovement(mouseData) {
 
     const dx = mouseData[i].x - mouseData[i - 1].x;
     const dy = mouseData[i].y - mouseData[i - 1].y;
-    const velocity = Math.sqrt(dx * dx + dy * dy) / dt;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    totalDistance += distance;
+    
+    const velocity = distance / dt;
     velocities.push(velocity);
 
     if (i > 1) {
-      const prevVelocity = velocities[i - 2];
+      const prevVelocity = velocities[velocities.length - 2];
       const acceleration = Math.abs(velocity - prevVelocity) / dt;
       accelerations.push(acceleration);
 
@@ -773,144 +848,76 @@ function analyzeMouseMovement(mouseData) {
         Math.sqrt(dx * dx + dy * dy) *
         Math.sqrt(prevDx * prevDx + prevDy * prevDy);
       if (magnitude > 0) {
-        const angle = Math.acos(dotProduct / magnitude);
+        const angle = Math.acos(Math.max(-1, Math.min(1, dotProduct / magnitude)));
         if (angle > Math.PI / 4) directionChanges.push(angle);
       }
     }
   }
 
   const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
+  const maxVelocity = Math.max(...velocities);
   const velocityStd = Math.sqrt(
     velocities.reduce((a, b) => a + Math.pow(b - avgVelocity, 2), 0) /
       velocities.length
   );
+  const maxAcceleration = accelerations.length > 0 ? Math.max(...accelerations) : 0;
   const avgAcceleration =
     accelerations.length > 0
       ? accelerations.reduce((a, b) => a + b, 0) / accelerations.length
       : 0;
   const directionChangeCount = directionChanges.length;
 
-  // Classification logic
-  let adhdType = 'No ADHD';
+  // Raw metrics
+  const raw_metrics = {
+    total_distance: totalDistance,
+    max_velocity: maxVelocity,
+    max_acceleration: maxAcceleration,
+    vel_std: velocityStd,
+    acc_std: avgAcceleration,
+    mean_velocity: avgVelocity,
+    direction_changes: directionChangeCount
+  };
+
+  // Classifications
+  const classifications = {
+    'Total Distance': totalDistance > 4000 ? 'High' : totalDistance > 1000 ? 'Borderline' : 'Normal',
+    'Max Velocity': maxVelocity > 1000 ? 'High' : maxVelocity > 300 ? 'Borderline' : 'Normal',
+    'Velocity Variability': velocityStd > 500 ? 'High' : velocityStd > 100 ? 'Borderline' : 'Normal',
+    'Direction Changes': directionChangeCount > 20 ? 'High' : directionChangeCount > 5 ? 'Borderline' : 'Normal'
+  };
+
+  // Determine ADHD type
+  const highVelocity = classifications['Max Velocity'] === 'High';
+  const highVariability = classifications['Velocity Variability'] === 'High';
+  const highDirectionChanges = classifications['Direction Changes'] === 'High';
+
+  let adhdType = 'No ADHD Indicators';
   let confidence = 0;
 
-  if (velocityStd > 5 && avgAcceleration > 0.5) {
-    adhdType = 'Hyperactive ADHD';
-    confidence = Math.min(85, 60 + velocityStd * 3 + avgAcceleration * 10);
-  } else if (directionChangeCount > mouseData.length * 0.3) {
-    adhdType = 'Inattentive ADHD';
-    confidence = Math.min(
-      80,
-      55 + (directionChangeCount / mouseData.length) * 100
-    );
-  } else if (velocityStd > 3 && directionChangeCount > mouseData.length * 0.2) {
-    adhdType = 'Combined ADHD';
-    confidence = Math.min(
-      82,
-      58 + velocityStd * 2 + (directionChangeCount / mouseData.length) * 50
-    );
+  if ((highVelocity || highVariability) && highDirectionChanges) {
+    adhdType = 'Combined Type';
+    confidence = 75;
+  } else if (highVelocity || highVariability) {
+    adhdType = 'Hyperactive Type';
+    confidence = 65;
+  } else if (highDirectionChanges) {
+    adhdType = 'Inattentive Type';
+    confidence = 60;
   } else {
-    confidence = Math.max(70, 90 - velocityStd * 2);
+    // Count normals
+    const normalCount = Object.values(classifications).filter(v => v === 'Normal').length;
+    confidence = (normalCount / Object.keys(classifications).length) * 100;
   }
+
+  console.log('✅ JS Fallback analysis:', { adhdType, confidence: confidence.toFixed(1) });
 
   return {
     adhd_type: adhdType,
     confidence: parseFloat(confidence.toFixed(1)),
-    classifications: {
-      'Avg Velocity': avgVelocity.toFixed(2),
-      'Velocity Std Dev': velocityStd.toFixed(2),
-      'Avg Acceleration': avgAcceleration.toFixed(2),
-      'Direction Changes': directionChangeCount,
-    },
+    classifications: classifications,
+    raw_metrics: raw_metrics
   };
 }
-
-function calculateOverallResult(data) {
-  const scores = [];
-  let classifications = [];
-
-  // Questionnaire
-  if (data.questionnaire) {
-    classifications.push(data.questionnaire.classification);
-    const totalScore =
-      data.questionnaire.inattentiveScore + data.questionnaire.hyperactiveScore;
-    scores.push(totalScore > 10 ? 80 : 40);
-  }
-
-  // Go/No-Go
-  if (data.goNoGo) {
-    const accuracy =
-      data.goNoGo.hits /
-      (data.goNoGo.hits + data.goNoGo.misses + data.goNoGo.falseAlarms);
-    scores.push(accuracy < 0.7 ? 70 : 30);
-  }
-
-  // N-Back
-  if (data.nBack) {
-    scores.push(data.nBack.accuracy < 60 ? 65 : 35);
-  }
-
-  // Stroop
-  if (data.stroop) {
-    const stroopAccuracy = (data.stroop.score / data.stroop.totalRounds) * 100;
-    scores.push(stroopAccuracy < 70 ? 70 : 30);
-  }
-
-  // Mouse Tracking
-  if (data.mouseTracking?.analysisResult) {
-    classifications.push(data.mouseTracking.analysisResult.adhd_type);
-    scores.push(data.mouseTracking.analysisResult.confidence);
-  }
-
-  const avgConfidence = scores.reduce((a, b) => a + b, 0) / scores.length;
-  const finalClassification = getMostCommonClassification(classifications);
-
-  return {
-    finalClassification,
-    confidence: parseFloat(avgConfidence.toFixed(1)),
-    recommendations: generateRecommendations(finalClassification),
-  };
-}
-
-function getMostCommonClassification(classifications) {
-  const counts = {};
-  classifications.forEach(c => (counts[c] = (counts[c] || 0) + 1));
-  return Object.keys(counts).reduce(
-    (a, b) => (counts[a] > counts[b] ? a : b),
-    'No ADHD'
-  );
-}
-
-function generateRecommendations(classification) {
-  const recommendations = {
-    'No ADHD': [
-      'Continue monitoring behavior patterns',
-      'Maintain healthy lifestyle and sleep habits',
-      'Regular check-ups with healthcare provider',
-    ],
-    'Inattentive ADHD': [
-      'Consult with a psychiatrist for professional evaluation',
-      'Consider cognitive behavioral therapy (CBT)',
-      'Implement organizational tools and reminders',
-      'Break tasks into smaller, manageable steps',
-    ],
-    'Hyperactive/Impulsive ADHD': [
-      'Seek professional medical evaluation',
-      'Consider physical activities and exercise routines',
-      'Practice mindfulness and relaxation techniques',
-      'Structured environment and consistent routines',
-    ],
-    'Combined ADHD': [
-      'Comprehensive evaluation by healthcare professional recommended',
-      'Combination of behavioral therapy and possible medication',
-      'Structured daily routines with clear expectations',
-      'Support groups and family education',
-    ],
-  };
-
-  return recommendations[classification] || recommendations['No ADHD'];
-}
-
 // ==================== SERVER START ====================
 
 const PORT = process.env.PORT || 5000;

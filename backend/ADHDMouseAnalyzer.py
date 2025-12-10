@@ -1,14 +1,16 @@
+"""
+Mouse Movement Analysis for ADHD Detection
+Entry point for Node.js integration
+"""
+
+import sys
 import json
 import numpy as np
-import pandas as pd
-from typing import Dict, Tuple, List
+from typing import Dict
+
 
 class ADHDMouseAnalyzer:
-    """
-    Analyzes mouse movement data to detect ADHD indicators.
-    Based on research showing ADHD correlates with increased movement variability,
-    higher velocity, and more erratic patterns.
-    """
+    """Analyzes mouse movement data to detect ADHD indicators."""
     
     def __init__(self):
         # Research-based thresholds
@@ -21,46 +23,67 @@ class ADHDMouseAnalyzer:
             "direction_changes": {"low": 5, "high": 20}
         }
     
-    def load_data(self, filepath: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Load mouse tracking data from JSON file."""
-        with open(filepath, 'r') as f:
-            data = json.load(f)
-        
-        times = np.array([point['time'] for point in data])
-        xs = np.array([point['x'] for point in data])
-        ys = np.array([point['y'] for point in data])
-        
-        return times, xs, ys
-    
-    def compute_metrics(self, times: np.ndarray, xs: np.ndarray, ys: np.ndarray) -> Dict:
+    def compute_metrics(self, mouse_data: list) -> Dict:
         """Compute movement metrics from position data."""
+        if len(mouse_data) < 2:
+            return self._empty_metrics()
+        
+        # Extract arrays
+        times = np.array([point.get('time', 0) for point in mouse_data])
+        xs = np.array([point.get('x', 0) for point in mouse_data])
+        ys = np.array([point.get('y', 0) for point in mouse_data])
+        
         # Time and position differences
         dt = np.diff(times)
         dx = np.diff(xs)
         dy = np.diff(ys)
         
+        # Avoid division by zero
+        dt = np.where(dt == 0, 1e-6, dt)
+        
         # Distance and velocity
         dist = np.sqrt(dx**2 + dy**2)
-        velocity = dist / (dt + 1e-6)
+        velocity = dist / dt
         
         # Acceleration
-        acceleration = np.diff(velocity) / (dt[1:] + 1e-6)
+        if len(velocity) > 1:
+            acceleration = np.diff(velocity) / dt[1:]
+        else:
+            acceleration = np.array([])
+        
+        # Count direction changes
+        direction_changes = self._count_direction_changes(dx, dy)
         
         # Aggregate metrics
         metrics = {
-            "total_distance": np.sum(dist),
-            "max_velocity": np.max(velocity) if len(velocity) > 0 else 0,
-            "max_acceleration": np.max(np.abs(acceleration)) if len(acceleration) > 0 else 0,
-            "vel_std": np.std(velocity) if len(velocity) > 0 else 0,
-            "acc_std": np.std(acceleration) if len(acceleration) > 0 else 0,
-            "mean_velocity": np.mean(velocity) if len(velocity) > 0 else 0,
-            "direction_changes": self._count_direction_changes(dx, dy)
+            "total_distance": float(np.sum(dist)),
+            "max_velocity": float(np.max(velocity)) if len(velocity) > 0 else 0,
+            "max_acceleration": float(np.max(np.abs(acceleration))) if len(acceleration) > 0 else 0,
+            "vel_std": float(np.std(velocity)) if len(velocity) > 0 else 0,
+            "acc_std": float(np.std(acceleration)) if len(acceleration) > 0 else 0,
+            "mean_velocity": float(np.mean(velocity)) if len(velocity) > 0 else 0,
+            "direction_changes": direction_changes
         }
         
         return metrics
     
+    def _empty_metrics(self) -> Dict:
+        """Return empty metrics for insufficient data."""
+        return {
+            "total_distance": 0,
+            "max_velocity": 0,
+            "max_acceleration": 0,
+            "vel_std": 0,
+            "acc_std": 0,
+            "mean_velocity": 0,
+            "direction_changes": 0
+        }
+    
     def _count_direction_changes(self, dx: np.ndarray, dy: np.ndarray) -> int:
         """Count number of significant direction changes."""
+        if len(dx) < 2:
+            return 0
+        
         direction_changes = 0
         for i in range(1, len(dx)):
             dot_product = dx[i-1] * dx[i] + dy[i-1] * dy[i]
@@ -77,14 +100,10 @@ class ADHDMouseAnalyzer:
         else:
             return "Borderline"
     
-    def analyze(self, filepath: str) -> Dict:
-        """
-        Main analysis function.
-        Returns classification results and ADHD type prediction.
-        """
-        # Load and compute
-        times, xs, ys = self.load_data(filepath)
-        metrics = self.compute_metrics(times, xs, ys)
+    def analyze(self, mouse_data: list) -> Dict:
+        """Main analysis function."""
+        # Compute metrics
+        metrics = self.compute_metrics(mouse_data)
         
         # Classify each metric
         classifications = {
@@ -121,10 +140,10 @@ class ADHDMouseAnalyzer:
         confidence = self._calculate_confidence(classifications, adhd_type)
         
         return {
-            "raw_metrics": metrics,
-            "classifications": classifications,
             "adhd_type": adhd_type,
-            "confidence": confidence
+            "confidence": confidence,
+            "classifications": classifications,
+            "raw_metrics": metrics
         }
     
     def _determine_adhd_type(self, classifications: Dict) -> str:
@@ -163,87 +182,57 @@ class ADHDMouseAnalyzer:
         else:
             # Confidence based on high and borderline indicators
             return min(100, (high_count * 15 + borderline_count * 5) + 30)
-    
-    def generate_report(self, results: Dict) -> str:
-        """Generate a detailed text report."""
-        report = []
-        report.append("=" * 60)
-        report.append("ADHD MOUSE MOVEMENT ANALYSIS REPORT")
-        report.append("=" * 60)
-        report.append("")
-        
-        # Raw metrics
-        report.append("RAW METRICS:")
-        report.append("-" * 60)
-        for key, value in results["raw_metrics"].items():
-            report.append(f"  {key.replace('_', ' ').title()}: {value:.2f}")
-        report.append("")
-        
-        # Classifications
-        report.append("CLASSIFICATIONS:")
-        report.append("-" * 60)
-        for key, value in results["classifications"].items():
-            report.append(f"  {key}: {value}")
-        report.append("")
-        
-        # Final diagnosis
-        report.append("DIAGNOSIS:")
-        report.append("-" * 60)
-        report.append(f"  Type: {results['adhd_type']}")
-        report.append(f"  Confidence: {results['confidence']:.1f}%")
-        report.append("")
-        
-        # Interpretation
-        report.append("INTERPRETATION:")
-        report.append("-" * 60)
-        adhd_type = results['adhd_type']
-        
-        if adhd_type == "No ADHD Indicators":
-            report.append("  Mouse movement patterns are within normal ranges.")
-            report.append("  No significant ADHD indicators detected.")
-        elif adhd_type == "Hyperactive Type":
-            report.append("  Elevated velocity and acceleration detected.")
-            report.append("  Patterns consistent with hyperactive-type ADHD.")
-        elif adhd_type == "Inattentive Type":
-            report.append("  High movement variability and direction changes.")
-            report.append("  Patterns consistent with inattentive-type ADHD.")
-        elif adhd_type == "Combined Type":
-            report.append("  Both hyperactive and inattentive indicators present.")
-            report.append("  Patterns consistent with combined-type ADHD.")
-        
-        report.append("")
-        report.append("=" * 60)
-        report.append("DISCLAIMER:")
-        report.append("This analysis is for research/screening purposes only.")
-        report.append("Professional clinical evaluation is required for diagnosis.")
-        report.append("=" * 60)
-        
-        return "\n".join(report)
 
 
 def main():
-    """Example usage of the ADHDMouseAnalyzer."""
-    analyzer = ADHDMouseAnalyzer()
-    
-    # Analyze the data
-    results = analyzer.analyze("mouse_tracking_data.json")
-    
-    # Generate and print report
-    report = analyzer.generate_report(results)
-    print(report)
-    
-    # Save results to JSON
-    with open("analysis_results.json", 'w') as f:
-        # Convert numpy types to native Python types for JSON serialization
-        serializable_results = {
-            "raw_metrics": {k: float(v) for k, v in results["raw_metrics"].items()},
-            "classifications": results["classifications"],
-            "adhd_type": results["adhd_type"],
-            "confidence": float(results["confidence"])
+    """Entry point for Node.js integration."""
+    try:
+        # Read JSON input from stdin
+        raw_input = sys.stdin.read()
+        
+        if not raw_input:
+            print(json.dumps({"error": "No input received"}), flush=True)
+            return
+        
+        # Parse input
+        input_data = json.loads(raw_input)
+        
+        # Debug logging to stderr (won't interfere with JSON output)
+        sys.stderr.write(f"DEBUG: Received {len(input_data)} mouse data points\n")
+        sys.stderr.flush()
+        
+        # Create analyzer and analyze
+        analyzer = ADHDMouseAnalyzer()
+        result = analyzer.analyze(input_data)
+        
+        # Debug output
+        sys.stderr.write(f"DEBUG: Analysis result: {result['adhd_type']}, confidence: {result['confidence']:.1f}%\n")
+        sys.stderr.flush()
+        
+        # Output result as JSON
+        print(json.dumps(result), flush=True)
+        
+    except json.JSONDecodeError as e:
+        error_msg = {
+            "error": f"Invalid JSON input: {str(e)}",
+            "adhd_type": "Error",
+            "confidence": 0,
+            "classifications": {}
         }
-        json.dump(serializable_results, f, indent=2)
-    
-    print("\nResults saved to 'analysis_results.json'")
+        print(json.dumps(error_msg), flush=True)
+        sys.stderr.write(f"JSON Error: {str(e)}\n")
+        sys.stderr.flush()
+        
+    except Exception as e:
+        error_msg = {
+            "error": f"Analysis error: {str(e)}",
+            "adhd_type": "Error",
+            "confidence": 0,
+            "classifications": {}
+        }
+        print(json.dumps(error_msg), flush=True)
+        sys.stderr.write(f"Error: {str(e)}\n")
+        sys.stderr.flush()
 
 
 if __name__ == "__main__":
