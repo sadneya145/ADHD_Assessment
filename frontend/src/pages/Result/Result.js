@@ -516,7 +516,7 @@ export default function ResultsPage() {
             </button>
             <button 
               className="back-btn" 
-              onClick={() => window.location.href = '/profile'}
+              onClick={() => window.location.href = '/home/profile'}
               style={{
                 padding: '12px 24px',
                 background: '#667eea',
