@@ -443,80 +443,79 @@ export default function MultiGameAssessment() {
 
     if (!videoBlob || videoBlob.size === 0) {
       setApiMessage('⚠️ No video recorded');
-      await saveResults(null);
+      await saveResults(null, null);
       return;
     }
 
-    setApiMessage('📤 Uploading video for ADHD analysis...');
-    const adhdResults = await uploadAndAnalyzeVideo(videoBlob);
-    await saveResults(adhdResults, videoBlob);
+    setApiMessage('💾 Saving assessment results...');
+    await saveResults(null, videoBlob);
   };
 
-  const uploadAndAnalyzeVideo = async videoBlob => {
-    try {
-      const fileSizeMB = (videoBlob.size / 1024 / 1024).toFixed(2);
-      console.log('📤 Uploading video:', fileSizeMB, 'MB');
-      setApiMessage(`📤 Uploading ${fileSizeMB} MB video...`);
+  // const uploadAndAnalyzeVideo = async videoBlob => {
+  //   try {
+  //     const fileSizeMB = (videoBlob.size / 1024 / 1024).toFixed(2);
+  //     console.log('📤 Uploading video:', fileSizeMB, 'MB');
+  //     setApiMessage(`📤 Uploading ${fileSizeMB} MB video...`);
 
-      const formData = new FormData();
-      formData.append('file', videoBlob, `adhd_multi_test_${Date.now()}.webm`);
+  //     const formData = new FormData();
+  //     formData.append('file', videoBlob, `adhd_multi_test_${Date.now()}.webm`);
 
-      const response = await fetch(`${BACKEND_URL}/analyze/video`, {
-        method: 'POST',
-        body: formData,
-      });
+  //     const response = await fetch(`${BACKEND_URL}/analyze/video`, {
+  //       method: 'POST',
+  //       body: formData,
+  //     });
 
-      if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+  //     if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
 
-      const result = await response.json();
-      console.log('✅ Upload successful, job:', result.job_id);
-      setApiMessage(`⏳ Analyzing video (Job: ${result.job_id})...`);
+  //     const result = await response.json();
+  //     console.log('✅ Upload successful, job:', result.job_id);
+  //     setApiMessage(`⏳ Analyzing video (Job: ${result.job_id})...`);
 
-      return await pollForResults(result.job_id);
-    } catch (err) {
-      console.error('❌ Upload error:', err);
-      setApiMessage(`❌ Upload failed: ${err.message}`);
-      return null;
-    }
-  };
+  //     return await pollForResults(result.job_id);
+  //   } catch (err) {
+  //     console.error('❌ Upload error:', err);
+  //     setApiMessage(`❌ Upload failed: ${err.message}`);
+  //     return null;
+  //   }
+  // };
 
-  const pollForResults = async (jobId, maxAttempts = 80) => {
-    setApiMessage('🔍 Analyzing attention patterns...');
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const response = await fetch(`${BACKEND_URL}/results/${jobId}`);
-        if (!response.ok) {
-          if (attempt < 3) {
-            await new Promise(resolve => setTimeout(resolve, 4000));
-            continue;
-          }
-          throw new Error(`Failed to fetch results: ${response.status}`);
-        }
+  // const pollForResults = async (jobId, maxAttempts = 80) => {
+  //   setApiMessage('🔍 Analyzing attention patterns...');
+  //   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  //     try {
+  //       const response = await fetch(`${BACKEND_URL}/results/${jobId}`);
+  //       if (!response.ok) {
+  //         if (attempt < 3) {
+  //           await new Promise(resolve => setTimeout(resolve, 4000));
+  //           continue;
+  //         }
+  //         throw new Error(`Failed to fetch results: ${response.status}`);
+  //       }
 
-        const data = await response.json();
-        if (data.status === 'completed' && data.results) {
-          if (
-            data.results.overall_score !== undefined &&
-            data.results.risk_level !== undefined
-          ) {
-            setApiMessage('✅ ADHD Analysis complete!');
-            return data.results;
-          }
-        } else if (data.status === 'error') {
-          return null;
-        }
+  //       const data = await response.json();
+  //       if (data.status === 'completed' && data.results) {
+  //         if (
+  //           data.results.overall_score !== undefined &&
+  //           data.results.risk_level !== undefined
+  //         ) {
+  //           setApiMessage('✅ ADHD Analysis complete!');
+  //           return data.results;
+  //         }
+  //       } else if (data.status === 'error') {
+  //         return null;
+  //       }
 
-        if (attempt % 5 === 0 && attempt > 0) {
-          setApiMessage(`⏳ Still analyzing... (${attempt * 2}s elapsed)`);
-        }
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      } catch (err) {
-        if (attempt >= maxAttempts - 1) return null;
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    }
-    return null;
-  };
+  //       if (attempt % 5 === 0 && attempt > 0) {
+  //         setApiMessage(`⏳ Still analyzing... (${attempt * 2}s elapsed)`);
+  //       }
+  //       await new Promise(resolve => setTimeout(resolve, 2000));
+  //     } catch (err) {
+  //       if (attempt >= maxAttempts - 1) return null;
+  //       await new Promise(resolve => setTimeout(resolve, 2000));
+  //     }
+  //   }
+  //   return null;
+  // };
 
   const saveResults = async (adhdResults, videoBlob) => {
     try {
@@ -562,11 +561,17 @@ export default function MultiGameAssessment() {
       });
 
       const data = await res.json();
+      console.log('📥 Backend response:', data);
+
       if (res.ok) {
         console.log('✅ Results saved successfully');
 
-        if (videoBlob) {
-          await uploadVideoToMongo(videoBlob, data.assessmentId);
+        // CRITICAL FIX: Use correct field name
+        const assessmentId = data.assessment?._id;
+
+        if (videoBlob && assessmentId) {
+          setApiMessage('📤 Uploading video...');
+          await uploadVideoToMongo(videoBlob, assessmentId);
         }
 
         setApiMessage('✅ All done! Redirecting...');
@@ -582,47 +587,48 @@ export default function MultiGameAssessment() {
     }
   };
 
+  // ==================== FRONTEND CHANGES NEEDED ====================
 
-// ==================== FRONTEND CHANGES NEEDED ====================
+  // UPDATE YOUR uploadVideoToMongo function in the frontend:
+  const uploadVideoToMongo = async (videoBlob, assessmentId) => {
+    try {
+      console.log('🎥 Converting video to base64...');
+      const token = localStorage.getItem('token');
 
-// UPDATE YOUR uploadVideoToMongo function in the frontend:
+      // Convert blob to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(videoBlob);
+      });
 
-const uploadVideoToMongo = async (videoBlob, assessmentId) => {
-  try {
-    const token = localStorage.getItem('token');
-    
-    // Convert blob to base64
-    const reader = new FileReader();
-    const base64Promise = new Promise((resolve, reject) => {
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(videoBlob);
-    });
-    
-    const videoBase64 = await base64Promise;
-    
-    const res = await fetch(`${BACKEND_URL}/api/assessments/upload-video`, {
-      method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        assessmentId,
-        videoBase64
-      })
-    });
+      const videoBase64 = await base64Promise;
+      console.log('📤 Uploading video for assessment:', assessmentId);
 
-    if (res.ok) {
-      console.log('✅ Video uploaded to UploadThing');
-    } else {
-      console.error('❌ Upload failed');
+      const res = await fetch(`${BACKEND_URL}/api/assessments/upload-video`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          assessmentId,
+          videoBase64,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log('✅ Video uploaded to UploadThing:', data.videoUrl);
+      } else {
+        const errorData = await res.json();
+        console.error('❌ Video upload failed:', errorData.error);
+      }
+    } catch (err) {
+      console.error('❌ Video upload error:', err);
     }
-  } catch (err) {
-    console.error('❌ Video upload error:', err);
-  }
-};
-
+  };
 
   if (overallState === 'selection') {
     return (
