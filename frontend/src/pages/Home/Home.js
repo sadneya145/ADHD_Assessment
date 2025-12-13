@@ -48,16 +48,16 @@ const Home = () => {
       color: "#FFE66D",
       bgGradient: "linear-gradient(135deg, #FFE66D 0%, #FDBB2D 100%)"
     },
-    {
-      title: "Mouse Master",
-      subtitle: "Movement Tracking",
-      description: "Control your mouse with precision and speed!",
-      skillTest: "Assesses motor control and coordination",
-      icon: "🖱️",
-      link: "/home/mouse",
-      color: "#A8E6CF",
-      bgGradient: "linear-gradient(135deg, #A8E6CF 0%, #56CCF2 100%)"
-    },
+    // {
+    //   title: "Mouse Master",
+    //   subtitle: "Movement Tracking",
+    //   description: "Control your mouse with precision and speed!",
+    //   skillTest: "Assesses motor control and coordination",
+    //   icon: "🖱️",
+    //   link: "/home/mouse",
+    //   color: "#A8E6CF",
+    //   bgGradient: "linear-gradient(135deg, #A8E6CF 0%, #56CCF2 100%)"
+    // },
     {
       title: "Tell Us More",
       subtitle: "Behavioral Form",

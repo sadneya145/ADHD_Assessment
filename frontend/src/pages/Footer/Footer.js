@@ -20,7 +20,7 @@ const Footer = () => {
                     <div className="footer-section">
                         <h4 className="footer-heading">Quick Links</h4>
                         <ul className="footer-links">
-                            <li><Link to="/home">Home</Link></li>
+                            <li><Link to="/">Home</Link></li>
                             <li><Link to="/home/games">Games</Link></li>
                             <li><Link to="/home/webcam">Video Assessment</Link></li>
                             <li><Link to="/home/form">Behavioral Form</Link></li>

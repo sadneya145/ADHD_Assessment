@@ -43,7 +43,7 @@ const Header = () => {
     };
 
     const navItems = [
-        { to: "/home", label: "Home", emoji: "🏠", color: "#FF6B6B" },
+        { to: "/", label: "Home", emoji: "🏠", color: "#FF6B6B" },
         { to: "/home/games", label: "Games", emoji: "🎮", color: "#4ECDC4" },
         { to: "/home/webcam", label: "Video", emoji: "📹", color: "#95E1D3" },
         { to: "/home/form", label: "Form", emoji: "📝", color: "#FFE66D" },
@@ -65,7 +65,7 @@ const Header = () => {
 
             <div className="header-container">
                 {/* Logo Section */}
-                <Link to="/home" className="logo-container">
+                <Link to="/" className="logo-container">
                     <div className="logo-circle">
                         <span className="logo-emoji">🧠</span>
                     </div>

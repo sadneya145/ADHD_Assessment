@@ -4,6 +4,14 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const { UTApi } = require("uploadthing/server");
+
+// Initialize UploadThing
+const utapi = new UTApi({
+  apiKey: process.env.UPLOADTHING_SECRET,
+});
+
+console.log('✅ UploadThing initialized');
 
 const analyzeMouseWithPython = require('./analyzeMouseWithPython');
 
@@ -11,9 +19,8 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
+app.use(express.json({limit: '50mb'}));
+app.use(express.urlencoded({extended: true, limit: '50mb'}));
 
 // MongoDB Connection
 const MONGODB_URI =
@@ -32,13 +39,14 @@ mongoose
 
 // User Schema
 const userSchema = new mongoose.Schema({
-  email: {type: String, required: true, unique: true},
+  // email: {type: String, required: true, unique: true},
+  username: {type: String, required: true, unique: true},
   password: {type: String},
-  googleId: {type: String},
+  // googleId: {type: String},
   displayName: {type: String},
-  photoURL: {type: String},
-  age: { type: Number },
-  dateOfBirth: { type: Date },
+  // photoURL: {type: String},
+  age: {type: Number, required: true},
+  dateOfBirth: {type: Date},
   createdAt: {type: Date, default: Date.now},
   assessments: [{type: mongoose.Schema.Types.ObjectId, ref: 'Assessment'}],
 });
@@ -46,12 +54,24 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 const assessmentSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    completedAt: { type: Date, default: Date.now },
-
+    userId: {type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true},
+    completedAt: {type: Date, default: Date.now},
+    videoUrl: {
+      type: String,
+      default: null
+    },
+    videoKey: {
+      type: String,
+      default: null
+    },
+    videoMetadata: {
+      filename: String,
+      uploadDate: Date,
+      size: Number
+    },
     questionnaire: {
-      inattentiveScore: { type: Number, default: null },
-      hyperactiveScore: { type: Number, default: null },
+      inattentiveScore: {type: Number, default: null},
+      hyperactiveScore: {type: Number, default: null},
       classification: String,
       responses: [
         {
@@ -64,62 +84,61 @@ const assessmentSchema = new mongoose.Schema(
     },
 
     goNoGo: {
-      hits: { type: Number, default: null },
-      misses: { type: Number, default: null },
-      falseAlarms: { type: Number, default: null },
-      correctRejections: { type: Number, default: null },
-      avgReactionTime: { type: Number, default: null },
+      hits: {type: Number, default: null},
+      misses: {type: Number, default: null},
+      falseAlarms: {type: Number, default: null},
+      correctRejections: {type: Number, default: null},
+      avgReactionTime: {type: Number, default: null},
       reactionTimes: [Number],
     },
 
     nBack: {
-      nLevel: { type: Number, default: null },
-      hits: { type: Number, default: null },
-      misses: { type: Number, default: null },
-      falseAlarms: { type: Number, default: null },
-      correctRejections: { type: Number, default: null },
-      accuracy: { type: Number, default: null },
+      nLevel: {type: Number, default: null},
+      hits: {type: Number, default: null},
+      misses: {type: Number, default: null},
+      falseAlarms: {type: Number, default: null},
+      correctRejections: {type: Number, default: null},
+      accuracy: {type: Number, default: null},
     },
 
     stroop: {
-      score: { type: Number, default: null },
-      totalRounds: { type: Number, default: null },
-      avgReactionTime: { type: Number, default: null },
+      score: {type: Number, default: null},
+      totalRounds: {type: Number, default: null},
+      avgReactionTime: {type: Number, default: null},
       reactionTimes: [Number],
     },
 
     mouseTracking: {
-      score: { type: Number, default: null },
-      mouseMovements: { type: Number, default: null },
+      score: {type: Number, default: null},
+      mouseMovements: {type: Number, default: null},
       analysisResult: {
         adhd_type: String,
-        confidence: { type: Number, default: null },
+        confidence: {type: Number, default: null},
         classifications: mongoose.Schema.Types.Mixed,
       },
     },
 
     // 🧠 Model result from Python assessment
     modelResult: {
-      composite_score: { type: Number, default: null },
-      likelihood: { type: String, default: null },
-      risk_level: { type: String, default: null },
+      composite_score: {type: Number, default: null},
+      likelihood: {type: String, default: null},
+      risk_level: {type: String, default: null},
       domain_scores: {
-        attention: { type: Number, default: null },
-        impulsivity: { type: Number, default: null },
-        working_memory: { type: Number, default: null },
+        attention: {type: Number, default: null},
+        impulsivity: {type: Number, default: null},
+        working_memory: {type: Number, default: null},
       },
       features: mongoose.Schema.Types.Mixed,
     },
 
     overallResult: {
       finalClassification: String,
-      confidence: { type: Number, default: null },
+      confidence: {type: Number, default: null},
       recommendations: [String],
     },
   },
-  { timestamps: true }
+  {timestamps: true}
 );
-
 
 const Assessment = mongoose.model('Assessment', assessmentSchema);
 
@@ -139,6 +158,8 @@ const MouseDataSchema = new mongoose.Schema({
 
 const MouseData = mongoose.model('MouseData', MouseDataSchema);
 
+
+
 // ==================== MIDDLEWARE ====================
 
 const authenticateToken = (req, res, next) => {
@@ -146,36 +167,46 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    return res.status(401).json({error: 'Access token required'});
   }
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+      return res.status(403).json({error: 'Invalid or expired token'});
     }
 
     // CONSISTENT: Always use userId everywhere
     req.user = {
-      userId: decoded.userId,  // Changed from 'id' to 'userId'
-      email: decoded.email
+      userId: decoded.userId, // Changed from 'id' to 'userId'
+      username: decoded.username,
     };
 
     next();
   });
 };
 
-
 // ==================== AUTH ROUTES ====================
 
 // Register
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const {email, password, displayName} = req.body;
+    const {username, password, displayName, age} = req.body;
+
+    // Validation
+    if (!username || !password || !age) {
+      return res
+        .status(400)
+        .json({error: 'Username, password, and age are required'});
+    }
+
+    if (age < 5 || age > 120) {
+      return res.status(400).json({error: 'Invalid age'});
+    }
 
     // Check if user exists
-    const existingUser = await User.findOne({email});
+    const existingUser = await User.findOne({username});
     if (existingUser) {
-      return res.status(400).json({error: 'User already exists'});
+      return res.status(400).json({error: 'Username already exists'});
     }
 
     // Hash password
@@ -183,25 +214,29 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Create user
     const user = new User({
-      email,
+      username,
       password: hashedPassword,
-      displayName,
+      displayName: displayName || username,
+      age,
     });
 
     await user.save();
 
     // Generate token
-    const token = jwt.sign({userId: user._id, email: user.email}, JWT_SECRET, {
-      expiresIn: '7d',
-    });
+    const token = jwt.sign(
+      {userId: user._id, username: user.username, age: user.age},
+      JWT_SECRET,
+      {expiresIn: '7d'}
+    );
 
     res.status(201).json({
       message: 'User created successfully',
       token,
       user: {
         id: user._id,
-        email: user.email,
+        username: user.username,
         displayName: user.displayName,
+        age: user.age,
       },
     });
   } catch (error) {
@@ -219,16 +254,17 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
       .populate('assessments');
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({error: 'User not found'});
     }
 
     // Calculate stats from assessments
     const assessments = user.assessments || [];
     const totalAssessments = assessments.length;
 
-    const lastAssessment = totalAssessments > 0
-      ? assessments[assessments.length - 1].completedAt
-      : null;
+    const lastAssessment =
+      totalAssessments > 0
+        ? assessments[assessments.length - 1].completedAt
+        : null;
 
     // FIX: Return as NUMBER, not string
     let averageCompositeScore = null;
@@ -237,12 +273,12 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
         const score = assessment.modelResult?.composite_score;
         return acc + (typeof score === 'number' ? score : 0);
       }, 0);
-      averageCompositeScore = sum / totalAssessments;  // Keep as number
+      averageCompositeScore = sum / totalAssessments; // Keep as number
     }
 
     res.json({
       user: {
-        email: user.email,
+        username: user.username,
         displayName: user.displayName,
         photoURL: user.photoURL,
         age: user.age,
@@ -251,34 +287,34 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
       stats: {
         totalAssessments,
         lastAssessment,
-        averageCompositeScore,  // Now returns number or null
+        averageCompositeScore, // Now returns number or null
       },
     });
   } catch (err) {
     console.error('Profile error:', err);
-    res.status(500).json({ error: 'Server error: ' + err.message });
+    res.status(500).json({error: 'Server error: ' + err.message});
   }
 });
 
 // UPDATE PROFILE
 app.put('/api/profile', authenticateToken, async (req, res) => {
   try {
-    const { displayName, age } = req.body;
+    const {displayName, age} = req.body;
 
     const user = await User.findByIdAndUpdate(
-      req.user.userId,  // Changed from req.user.id
-      { displayName, age },
-      { new: true, select: '-password' }
+      req.user.userId, // Changed from req.user.id
+      {displayName, age},
+      {new: true, select: '-password'}
     );
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({error: 'User not found'});
     }
 
-    res.json({ message: 'Profile updated', user });
+    res.json({message: 'Profile updated', user});
   } catch (err) {
     console.error('Update profile error:', err);
-    res.status(500).json({ error: 'Failed to update profile' });
+    res.status(500).json({error: 'Failed to update profile'});
   }
 });
 
@@ -289,13 +325,13 @@ app.get('/api/assessments/history', authenticateToken, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const skip = (page - 1) * limit;
 
-    const assessments = await Assessment.find({ userId: req.user.userId })  // Changed
-      .sort({ completedAt: -1 })
+    const assessments = await Assessment.find({userId: req.user.userId}) // Changed
+      .sort({completedAt: -1})
       .skip(skip)
       .limit(limit)
       .select('completedAt modelResult');
 
-    const total = await Assessment.countDocuments({ userId: req.user.userId });
+    const total = await Assessment.countDocuments({userId: req.user.userId});
 
     res.json({
       assessments,
@@ -307,7 +343,7 @@ app.get('/api/assessments/history', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error('Assessment history error:', err);
-    res.status(500).json({ error: 'Failed to fetch history' });
+    res.status(500).json({error: 'Failed to fetch history'});
   }
 });
 
@@ -316,32 +352,32 @@ app.delete('/api/assessments/:id', authenticateToken, async (req, res) => {
   try {
     const assessment = await Assessment.findOneAndDelete({
       _id: req.params.id,
-      userId: req.user.userId,  // Changed from req.user.id
+      userId: req.user.userId, // Changed from req.user.id
     });
 
     if (!assessment) {
-      return res.status(404).json({ error: 'Assessment not found' });
+      return res.status(404).json({error: 'Assessment not found'});
     }
 
     // Remove reference from User.assessments array
     await User.findByIdAndUpdate(req.user.userId, {
-      $pull: { assessments: req.params.id },
+      $pull: {assessments: req.params.id},
     });
 
-    res.json({ message: 'Assessment deleted successfully' });
+    res.json({message: 'Assessment deleted successfully'});
   } catch (err) {
     console.error('Delete assessment error:', err);
-    res.status(500).json({ error: 'Failed to delete assessment' });
+    res.status(500).json({error: 'Failed to delete assessment'});
   }
 });
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const {email, password} = req.body;
+    const {username, password} = req.body;
 
     // Find user
-    const user = await User.findOne({email});
+    const user = await User.findOne({username});
     if (!user) {
       return res.status(400).json({error: 'Invalid credentials'});
     }
@@ -353,15 +389,17 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     // Generate token
-    const token = jwt.sign({userId: user._id, email: user.email}, JWT_SECRET, {
-      expiresIn: '7d',
-    });
+    const token = jwt.sign(
+      {userId: user._id, username: user.username, age: user.age},
+      JWT_SECRET,
+      {expiresIn: '7d'}
+    );
 
     res.json({
       token,
       user: {
         id: user._id,
-        email: user.email,
+        username: user.username,
         displayName: user.displayName,
       },
     });
@@ -370,44 +408,262 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Google Auth (store user from Firebase)
-app.post('/api/auth/google', async (req, res) => {
+// // Google Auth (store user from Firebase)
+// app.post('/api/auth/google', async (req, res) => {
+//   try {
+//     const {username, googleId, displayName, photoURL} = req.body;
+
+//     let user = await User.findOne({username});
+
+//     if (!user) {
+//       user = new User({
+//         email,
+//         googleId,
+//         displayName,
+//         photoURL,
+//       });
+//       await user.save();
+//     }
+
+//     const token = jwt.sign({userId: user._id, email: user.email}, JWT_SECRET, {
+//       expiresIn: '7d',
+//     });
+
+//     res.json({
+//       token,
+//       user: {
+//         id: user._id,
+//         email: user.email,
+//         displayName: user.displayName,
+//         photoURL: user.photoURL,
+//       },
+//     });
+//   } catch (error) {
+//     res.status(500).json({error: error.message});
+//   }
+// });
+
+
+// ==================== VIDEO UPLOAD ENDPOINT ====================
+
+app.post('/api/assessments/upload-video', authenticateToken, async (req, res) => {
   try {
-    const {email, googleId, displayName, photoURL} = req.body;
-
-    let user = await User.findOne({email});
-
-    if (!user) {
-      user = new User({
-        email,
-        googleId,
-        displayName,
-        photoURL,
-      });
-      await user.save();
+    console.log('🎥 ==================== VIDEO UPLOAD ====================');
+    
+    const {assessmentId, videoBase64} = req.body;
+    
+    if (!assessmentId || !videoBase64) {
+      return res.status(400).json({error: 'Assessment ID and video data required'});
     }
 
-    const token = jwt.sign({userId: user._id, email: user.email}, JWT_SECRET, {
-      expiresIn: '7d',
+    // Verify assessment belongs to user
+    const assessment = await Assessment.findOne({
+      _id: assessmentId,
+      userId: req.user.userId
     });
 
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-      },
+    if (!assessment) {
+      return res.status(404).json({error: 'Assessment not found'});
+    }
+
+    console.log('📤 Uploading to UploadThing...');
+
+    // Convert base64 to buffer
+    const base64Data = videoBase64.replace(/^data:video\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    // Create File object
+    const file = new File([buffer], `assessment_${assessmentId}_${Date.now()}.webm`, {
+      type: 'video/webm'
     });
+
+    // Upload to UploadThing
+    const uploadResult = await utapi.uploadFiles(file);
+
+    if (uploadResult.error) {
+      throw new Error(uploadResult.error.message);
+    }
+
+    const uploadedFile = uploadResult.data;
+
+    console.log('✅ Video uploaded:', uploadedFile.url);
+    console.log('📊 File size:', (buffer.length / 1024 / 1024).toFixed(2), 'MB');
+
+    // Delete old video if exists
+    if (assessment.videoKey) {
+      try {
+        await utapi.deleteFiles(assessment.videoKey);
+        console.log('✅ Old video deleted');
+      } catch (err) {
+        console.error('⚠️ Failed to delete old video:', err);
+      }
+    }
+
+    // Update assessment
+    assessment.videoUrl = uploadedFile.url;
+    assessment.videoKey = uploadedFile.key;
+    assessment.videoMetadata = {
+      filename: uploadedFile.name,
+      uploadDate: new Date(),
+      size: buffer.length
+    };
+    
+    await assessment.save();
+
+    console.log('✅ Assessment updated');
+
+    res.json({
+      message: 'Video uploaded successfully',
+      videoUrl: uploadedFile.url,
+      videoKey: uploadedFile.key,
+      size: buffer.length
+    });
+
   } catch (error) {
+    console.error('❌ Video upload error:', error);
     res.status(500).json({error: error.message});
+  }
+});
+
+// ==================== VIDEO RETRIEVAL ENDPOINT ====================
+
+app.get('/api/assessments/:id/video', authenticateToken, async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({
+      _id: req.params.id,
+      userId: req.user.userId
+    });
+
+    if (!assessment) {
+      return res.status(404).json({error: 'Assessment not found'});
+    }
+
+    if (!assessment.videoUrl) {
+      return res.status(404).json({error: 'No video for this assessment'});
+    }
+
+    console.log('🎬 Returning video URL');
+
+    res.json({
+      videoUrl: assessment.videoUrl,
+      videoKey: assessment.videoKey,
+      metadata: assessment.videoMetadata
+    });
+
+  } catch (error) {
+    console.error('❌ Video retrieval error:', error);
+    res.status(500).json({error: error.message});
+  }
+});
+
+// ==================== VIDEO DELETION ENDPOINT ====================
+
+app.delete('/api/assessments/:id/video', authenticateToken, async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({
+      _id: req.params.id,
+      userId: req.user.userId
+    });
+
+    if (!assessment) {
+      return res.status(404).json({error: 'Assessment not found'});
+    }
+
+    if (!assessment.videoKey) {
+      return res.status(404).json({error: 'No video to delete'});
+    }
+
+    console.log('🗑️ Deleting video from UploadThing');
+
+    // Delete from UploadThing
+    await utapi.deleteFiles(assessment.videoKey);
+
+    // Update assessment
+    assessment.videoUrl = null;
+    assessment.videoKey = null;
+    assessment.videoMetadata = null;
+    await assessment.save();
+
+    console.log('✅ Video deleted');
+
+    res.json({message: 'Video deleted successfully'});
+
+  } catch (error) {
+    console.error('❌ Video deletion error:', error);
+    res.status(500).json({error: error.message});
+  }
+});
+
+// ==================== VIDEO METADATA ENDPOINT ====================
+
+app.get('/api/assessments/:id/video/info', authenticateToken, async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({
+      _id: req.params.id,
+      userId: req.user.userId
+    });
+
+    if (!assessment) {
+      return res.status(404).json({error: 'Assessment not found'});
+    }
+
+    if (!assessment.videoUrl) {
+      return res.json({hasVideo: false});
+    }
+
+    res.json({
+      hasVideo: true,
+      videoUrl: assessment.videoUrl,
+      videoKey: assessment.videoKey,
+      metadata: assessment.videoMetadata
+    });
+
+  } catch (error) {
+    console.error('❌ Video info error:', error);
+    res.status(500).json({error: error.message});
+  }
+});
+
+// ==================== CLEANUP: Update DELETE assessment ====================
+
+app.delete('/api/assessments/:id', authenticateToken, async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({
+      _id: req.params.id,
+      userId: req.user.userId,
+    });
+
+    if (!assessment) {
+      return res.status(404).json({error: 'Assessment not found'});
+    }
+
+    // Delete associated video from UploadThing if exists
+    if (assessment.videoKey) {
+      try {
+        await utapi.deleteFiles(assessment.videoKey);
+        console.log('✅ Associated video deleted');
+      } catch (err) {
+        console.error('⚠️ Video deletion failed (non-critical):', err);
+      }
+    }
+
+    // Delete assessment
+    await Assessment.findByIdAndDelete(req.params.id);
+
+    // Remove reference from User.assessments array
+    await User.findByIdAndUpdate(req.user.userId, {
+      $pull: {assessments: req.params.id},
+    });
+
+    res.json({message: 'Assessment deleted successfully'});
+  } catch (err) {
+    console.error('Delete assessment error:', err);
+    res.status(500).json({error: 'Failed to delete assessment'});
   }
 });
 
 // ==================== ASSESSMENT ROUTES ====================
 const runPythonAssessment = require('./runGames');
-
 
 // ==================== FIXED ASSESSMENT ROUTE ====================
 
@@ -429,10 +685,12 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
 
     // Get age from request or user profile
     let age = req.body.age || 12;
-    
+
     if (!req.body.age) {
       try {
-        const user = await User.findById(req.user.userId).select('age dateOfBirth');
+        const user = await User.findById(req.user.userId).select(
+          'age dateOfBirth'
+        );
         if (user?.age) {
           age = user.age;
           console.log(`📅 Using age from user profile: ${age}`);
@@ -453,43 +711,56 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
       stroop: stroop ? '✅' : '❌',
       questionnaire: questionnaire ? '✅' : '❌',
       mouseTracking: mouseTracking ? '✅' : '❌',
-      age: age
+      age: age,
     });
 
     // Validate that we have at least some data
-    if (!goNoGo && !nBack && !stroop && !questionnaire && !mouseTracking && !modelResult) {
-      return res.status(400).json({ 
+    if (
+      !goNoGo &&
+      !nBack &&
+      !stroop &&
+      !questionnaire &&
+      !mouseTracking &&
+      !modelResult
+    ) {
+      return res.status(400).json({
         error: 'No assessment data provided',
-        received: Object.keys(req.body)
+        received: Object.keys(req.body),
       });
     }
 
     // If no modelResult provided, run Python assessment
     if (!modelResult || Object.keys(modelResult).length === 0) {
       const hasTaskData = goNoGo || nBack || stroop;
-      
+
       if (hasTaskData) {
         console.log('⚙️ Running Python model with age:', age);
-        
+
         // Prepare input for Python
-        const pythonInput = { age: age };
+        const pythonInput = {age: age};
         if (goNoGo) pythonInput.goNoGo = goNoGo;
         if (nBack) pythonInput.nBack = nBack;
         if (stroop) pythonInput.stroop = stroop;
-        
-        console.log('📤 Sending to Python:', JSON.stringify(pythonInput, null, 2));
-        
+
+        console.log(
+          '📤 Sending to Python:',
+          JSON.stringify(pythonInput, null, 2)
+        );
+
         try {
           modelResult = await runPythonAssessment(pythonInput);
-          console.log('✅ Python returned:', JSON.stringify(modelResult, null, 2));
-          
+          console.log(
+            '✅ Python returned:',
+            JSON.stringify(modelResult, null, 2)
+          );
+
           if (modelResult.error) {
             throw new Error(`Python model error: ${modelResult.error}`);
           }
         } catch (err) {
           console.error('❌ Python assessment failed:', err);
           console.log('⚠️ Using JavaScript fallback calculation');
-          
+
           // Fallback calculation
           modelResult = calculateFallbackScores(goNoGo, nBack, stroop, age);
         }
@@ -499,8 +770,8 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
           composite_score: 0,
           likelihood: 'INCOMPLETE',
           risk_level: 'unknown',
-          domain_scores: { attention: 0, impulsivity: 0, working_memory: 0 },
-          features: {}
+          domain_scores: {attention: 0, impulsivity: 0, working_memory: 0},
+          features: {},
         };
       }
     }
@@ -538,27 +809,25 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
     });
 
     const saved = await assessment.save();
-    
+
     // Update user's assessment list
-    await User.findByIdAndUpdate(
-      req.user.userId, 
-      { $push: { assessments: saved._id } }
-    );
+    await User.findByIdAndUpdate(req.user.userId, {
+      $push: {assessments: saved._id},
+    });
 
     console.log('✅ Assessment saved with ID:', saved._id);
     console.log('='.repeat(80) + '\n');
 
-    res.status(201).json({ 
-      message: '✅ Assessment saved successfully', 
-      assessment: saved 
+    res.status(201).json({
+      message: '✅ Assessment saved successfully',
+      assessment: saved,
     });
-
   } catch (error) {
     console.error('❌ Assessment error:', error);
     console.error('Stack:', error.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message,
-      details: error.stack 
+      details: error.stack,
     });
   }
 });
@@ -567,7 +836,7 @@ app.post('/api/assessments', authenticateToken, async (req, res) => {
 
 function calculateFallbackScores(goNoGo, nBack, stroop, age) {
   console.log('🔧 Calculating fallback scores...');
-  
+
   let attention = 50;
   let impulsivity = 50;
   let workingMemory = 50;
@@ -577,7 +846,11 @@ function calculateFallbackScores(goNoGo, nBack, stroop, age) {
     const stroopAcc = (stroop.score / stroop.totalRounds) * 100;
     attention = stroopAcc;
     workingMemory = stroopAcc * 0.8;
-    console.log(`  Stroop: ${stroop.score}/${stroop.totalRounds} = ${stroopAcc.toFixed(1)}%`);
+    console.log(
+      `  Stroop: ${stroop.score}/${stroop.totalRounds} = ${stroopAcc.toFixed(
+        1
+      )}%`
+    );
   }
 
   // Go/No-Go scoring
@@ -586,13 +859,19 @@ function calculateFallbackScores(goNoGo, nBack, stroop, age) {
     if (total > 0) {
       const gonogoAcc = (goNoGo.hits / total) * 100;
       attention = stroop ? (attention + gonogoAcc) / 2 : gonogoAcc;
-      
-      const totalNogo = (goNoGo.falseAlarms || 0) + (goNoGo.correctRejections || 0);
+
+      const totalNogo =
+        (goNoGo.falseAlarms || 0) + (goNoGo.correctRejections || 0);
       if (totalNogo > 0) {
         const faRate = (goNoGo.falseAlarms || 0) / totalNogo;
-        impulsivity = 100 - (faRate * 100);
+        impulsivity = 100 - faRate * 100;
       }
-      console.log(`  Go/No-Go: Accuracy=${gonogoAcc.toFixed(1)}%, FA Rate=${((goNoGo.falseAlarms||0)/totalNogo*100).toFixed(1)}%`);
+      console.log(
+        `  Go/No-Go: Accuracy=${gonogoAcc.toFixed(1)}%, FA Rate=${(
+          ((goNoGo.falseAlarms || 0) / totalNogo) *
+          100
+        ).toFixed(1)}%`
+      );
     }
   }
 
@@ -602,11 +881,15 @@ function calculateFallbackScores(goNoGo, nBack, stroop, age) {
     if (total > 0) {
       const nbackAcc = (nBack.hits / total) * 100;
       workingMemory = nbackAcc;
-      
-      const totalNontarget = (nBack.falseAlarms || 0) + (nBack.correctRejections || 0);
+
+      const totalNontarget =
+        (nBack.falseAlarms || 0) + (nBack.correctRejections || 0);
       if (totalNontarget > 0) {
         const faRate = (nBack.falseAlarms || 0) / totalNontarget;
-        impulsivity = stroop || goNoGo ? (impulsivity + (100 - faRate * 100)) / 2 : (100 - faRate * 100);
+        impulsivity =
+          stroop || goNoGo
+            ? (impulsivity + (100 - faRate * 100)) / 2
+            : 100 - faRate * 100;
       }
       console.log(`  N-Back: Accuracy=${nbackAcc.toFixed(1)}%`);
     }
@@ -619,7 +902,7 @@ function calculateFallbackScores(goNoGo, nBack, stroop, age) {
   // Determine likelihood
   let likelihood = 'Low';
   let risk_level = 'low';
-  
+
   if (composite > 75) {
     likelihood = 'High';
     risk_level = 'high';
@@ -642,11 +925,11 @@ function calculateFallbackScores(goNoGo, nBack, stroop, age) {
     domain_scores: {
       attention: Math.round(attention * 100) / 100,
       impulsivity: Math.round(impulsivity * 100) / 100,
-      working_memory: Math.round(workingMemory * 100) / 100
+      working_memory: Math.round(workingMemory * 100) / 100,
     },
     features: {
-      note: 'Calculated using JavaScript fallback'
-    }
+      note: 'Calculated using JavaScript fallback',
+    },
   };
 
   console.log('✅ Fallback result:', result);
@@ -655,14 +938,14 @@ function calculateFallbackScores(goNoGo, nBack, stroop, age) {
 
 function generateRecommendations(modelResult) {
   const recommendations = [];
-  const { attention, impulsivity, working_memory } = modelResult.domain_scores;
-  
+  const {attention, impulsivity, working_memory} = modelResult.domain_scores;
+
   recommendations.push(`Attention: ${attention}%`);
   recommendations.push(`Impulse Control: ${impulsivity}%`);
   recommendations.push(`Working Memory: ${working_memory}%`);
 
   const likelihood = modelResult.likelihood;
-  
+
   if (likelihood === 'High') {
     recommendations.push('⚠️ Consider professional evaluation');
     recommendations.push('📋 Implement structured routines');
@@ -682,13 +965,14 @@ function generateRecommendations(modelResult) {
 // Get User's Assessments
 app.get('/api/assessments', authenticateToken, async (req, res) => {
   try {
-    const assessments = await Assessment.find({ userId: req.user.userId })
-      .sort({ completedAt: -1 });
+    const assessments = await Assessment.find({userId: req.user.userId}).sort({
+      completedAt: -1,
+    });
 
-    res.json({ assessments });
+    res.json({assessments});
   } catch (error) {
     console.error('Get assessments error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({error: error.message});
   }
 });
 
@@ -697,27 +981,29 @@ app.get('/api/assessments/:id', authenticateToken, async (req, res) => {
   try {
     const assessment = await Assessment.findOne({
       _id: req.params.id,
-      userId: req.user.userId,  // Changed from req.user.id
+      userId: req.user.userId, // Changed from req.user.id
     });
 
     if (!assessment) {
-      return res.status(404).json({ error: 'Assessment not found' });
+      return res.status(404).json({error: 'Assessment not found'});
     }
 
-    res.json({ assessment });
+    res.json({assessment});
   } catch (error) {
     console.error('Get assessment error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({error: error.message});
   }
 });
 // ==================== MOUSE ANALYSIS ENDPOINT (FIXED) ====================
 app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
   try {
-    console.log('\n🐭 ==================== MOUSE ANALYSIS REQUEST ====================');
+    console.log(
+      '\n🐭 ==================== MOUSE ANALYSIS REQUEST ===================='
+    );
     console.log('📊 Content-Type:', req.headers['content-type']);
     console.log('📊 Body type:', typeof req.body);
     console.log('📊 Is Array:', Array.isArray(req.body));
-    
+
     // Your frontend sends mouseData as direct array
     const mouseData = req.body;
 
@@ -728,7 +1014,7 @@ app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
         error: 'Expected array of mouse positions',
         received_type: typeof mouseData,
         adhd_type: 'Error',
-        confidence: 0
+        confidence: 0,
       });
     }
 
@@ -737,7 +1023,7 @@ app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
       return res.status(400).json({
         error: 'Empty mouse data array',
         adhd_type: 'Insufficient Data',
-        confidence: 0
+        confidence: 0,
       });
     }
 
@@ -746,23 +1032,30 @@ app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
       return res.status(400).json({
         error: `Too few data points: ${mouseData.length}. Need at least 10.`,
         adhd_type: 'Insufficient Data',
-        confidence: 0
+        confidence: 0,
       });
     }
 
     console.log('✅ Data points:', mouseData.length);
     console.log('📍 First point:', JSON.stringify(mouseData[0]));
-    console.log('📍 Last point:', JSON.stringify(mouseData[mouseData.length - 1]));
+    console.log(
+      '📍 Last point:',
+      JSON.stringify(mouseData[mouseData.length - 1])
+    );
 
     // Validate point structure
     const firstPoint = mouseData[0];
-    if (!firstPoint || typeof firstPoint.x !== 'number' || typeof firstPoint.y !== 'number') {
+    if (
+      !firstPoint ||
+      typeof firstPoint.x !== 'number' ||
+      typeof firstPoint.y !== 'number'
+    ) {
       console.error('❌ Invalid point structure:', firstPoint);
       return res.status(400).json({
         error: 'Invalid data point. Each point must have x and y numbers.',
         sample: firstPoint,
         adhd_type: 'Error',
-        confidence: 0
+        confidence: 0,
       });
     }
 
@@ -805,33 +1098,31 @@ app.post('/api/analyze/mouse', authenticateToken, async (req, res) => {
       adhd_type: analysis.adhd_type || 'Unknown',
       confidence: analysis.confidence || 0,
       classifications: analysis.classifications || {},
-      raw_metrics: analysis.raw_metrics || {}
+      raw_metrics: analysis.raw_metrics || {},
     });
-
   } catch (error) {
     console.error('❌ Endpoint error:', error);
     console.error('Stack:', error.stack);
     res.status(500).json({
       error: 'Server error: ' + error.message,
       adhd_type: 'Error',
-      confidence: 0
+      confidence: 0,
     });
   }
 });
-
 
 // ==================== ADD THIS JAVASCRIPT FALLBACK FUNCTION ====================
 // Add this function somewhere in your index.js (before the SERVER START section)
 
 function analyzeMouseMovementJS(mouseData) {
   console.log('🔧 JS Fallback Analysis');
-  
+
   if (!mouseData || mouseData.length < 10) {
     return {
       adhd_type: 'Insufficient Data',
       confidence: 0,
-      classifications: { 'Status': 'Too few data points' },
-      raw_metrics: { data_points: mouseData ? mouseData.length : 0 }
+      classifications: {Status: 'Too few data points'},
+      raw_metrics: {data_points: mouseData ? mouseData.length : 0},
     };
   }
 
@@ -843,11 +1134,11 @@ function analyzeMouseMovementJS(mouseData) {
 
     // Calculate metrics
     for (let i = 1; i < mouseData.length; i++) {
-      const dt = (mouseData[i].time - mouseData[i - 1].time) || 0.016;
+      const dt = mouseData[i].time - mouseData[i - 1].time || 0.016;
       const dx = mouseData[i].x - mouseData[i - 1].x;
       const dy = mouseData[i].y - mouseData[i - 1].y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      
+
       totalDistance += distance;
       const velocity = distance / dt;
       velocities.push(velocity);
@@ -861,8 +1152,10 @@ function analyzeMouseMovementJS(mouseData) {
         const prevDx = mouseData[i - 1].x - mouseData[i - 2].x;
         const prevDy = mouseData[i - 1].y - mouseData[i - 2].y;
         const dotProduct = dx * prevDx + dy * prevDy;
-        const magnitude = Math.sqrt(dx*dx + dy*dy) * Math.sqrt(prevDx*prevDx + prevDy*prevDy);
-        
+        const magnitude =
+          Math.sqrt(dx * dx + dy * dy) *
+          Math.sqrt(prevDx * prevDx + prevDy * prevDy);
+
         if (magnitude > 0) {
           const cosAngle = Math.max(-1, Math.min(1, dotProduct / magnitude));
           const angle = Math.acos(cosAngle);
@@ -872,9 +1165,11 @@ function analyzeMouseMovementJS(mouseData) {
     }
 
     // Statistics
-    const avgVel = velocities.reduce((a,b) => a+b, 0) / velocities.length;
+    const avgVel = velocities.reduce((a, b) => a + b, 0) / velocities.length;
     const maxVel = Math.max(...velocities);
-    const velStd = Math.sqrt(velocities.reduce((a,b) => a + (b-avgVel)**2, 0) / velocities.length);
+    const velStd = Math.sqrt(
+      velocities.reduce((a, b) => a + (b - avgVel) ** 2, 0) / velocities.length
+    );
     const maxAcc = accelerations.length > 0 ? Math.max(...accelerations) : 0;
     const dirChangeRate = directionChanges / mouseData.length;
 
@@ -885,15 +1180,27 @@ function analyzeMouseMovementJS(mouseData) {
       vel_std: Math.round(velStd * 10) / 10,
       max_acceleration: Math.round(maxAcc),
       direction_changes: directionChanges,
-      direction_change_rate: Math.round(dirChangeRate * 1000) / 1000
+      direction_change_rate: Math.round(dirChangeRate * 1000) / 1000,
     };
 
     // Classifications
     const classifications = {
-      'Total Distance': totalDistance > 4000 ? 'High' : totalDistance > 1000 ? 'Borderline' : 'Normal',
-      'Max Velocity': maxVel > 1000 ? 'High' : maxVel > 300 ? 'Borderline' : 'Normal',
-      'Velocity Variability': velStd > 500 ? 'High' : velStd > 100 ? 'Borderline' : 'Normal',
-      'Direction Changes': dirChangeRate > 0.3 ? 'High' : dirChangeRate > 0.1 ? 'Borderline' : 'Normal'
+      'Total Distance':
+        totalDistance > 4000
+          ? 'High'
+          : totalDistance > 1000
+          ? 'Borderline'
+          : 'Normal',
+      'Max Velocity':
+        maxVel > 1000 ? 'High' : maxVel > 300 ? 'Borderline' : 'Normal',
+      'Velocity Variability':
+        velStd > 500 ? 'High' : velStd > 100 ? 'Borderline' : 'Normal',
+      'Direction Changes':
+        dirChangeRate > 0.3
+          ? 'High'
+          : dirChangeRate > 0.1
+          ? 'Borderline'
+          : 'Normal',
     };
 
     // Determine type
@@ -914,7 +1221,9 @@ function analyzeMouseMovementJS(mouseData) {
       adhd_type = 'Inattentive Type';
       confidence = 60;
     } else {
-      const normalCount = Object.values(classifications).filter(v => v === 'Normal').length;
+      const normalCount = Object.values(classifications).filter(
+        v => v === 'Normal'
+      ).length;
       confidence = 70 + normalCount * 5;
     }
 
@@ -924,16 +1233,15 @@ function analyzeMouseMovementJS(mouseData) {
       adhd_type,
       confidence: Math.round(confidence * 10) / 10,
       classifications,
-      raw_metrics
+      raw_metrics,
     };
-
   } catch (error) {
     console.error('❌ JS analysis error:', error);
     return {
       adhd_type: 'Analysis Error',
       confidence: 0,
-      classifications: { 'Error': error.message },
-      raw_metrics: {}
+      classifications: {Error: error.message},
+      raw_metrics: {},
     };
   }
 }

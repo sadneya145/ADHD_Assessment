@@ -1,4 +1,129 @@
 /* Page Layout */
+
+/* Game Selection Grid */
+.game-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin: 2rem 0;
+  animation: fadeIn 0.8s ease-out;
+}
+
+/* Game Card */
+.game-select-card {
+  background: #f8fafc;
+  border-radius: 24px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  border: 3px solid #e5e7eb;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+/* Hover animation */
+.game-select-card:hover {
+  transform: translateY(-6px) scale(1.03);
+  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.25);
+  border-color: #667eea;
+}
+
+/* Selected Card */
+.game-select-card.selected {
+  transform: translateY(-4px) scale(1.05);
+  color: white;
+  border: 3px solid white;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.18);
+}
+
+/* Emoji */
+.game-select-emoji {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: bounce 2s infinite ease-in-out;
+}
+
+/* Game Title */
+.game-select-card h3 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  color: #1e293b;
+}
+
+.game-select-card.selected h3 {
+  color: white;
+}
+
+/* Description */
+.game-select-card p {
+  font-size: 1rem;
+  color: #475569;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.game-select-card.selected p {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Duration Badge */
+.game-duration {
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  display: inline-block;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  margin-top: 1rem;
+  backdrop-filter: blur(5px);
+}
+
+/* Checkmark */
+.check-mark {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: white;
+  color: #22c55e;
+  font-size: 1.1rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .game-selection-grid {
+    gap: 1rem;
+  }
+
+  .game-select-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .game-select-emoji {
+    font-size: 2.5rem;
+  }
+
+  .game-select-card h3 {
+    font-size: 1.25rem;
+  }
+
+  .game-duration {
+    font-size: 0.8rem;
+  }
+}
+
+
 .webcam-page {
   display: flex;
   flex-direction: column;
