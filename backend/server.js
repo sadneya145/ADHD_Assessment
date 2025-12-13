@@ -664,170 +664,383 @@ app.delete('/api/assessments/:id', authenticateToken, async (req, res) => {
 
 // ==================== ASSESSMENT ROUTES ====================
 const runPythonAssessment = require('./runGames');
+const runVideoAssessment = require("./runVideoAssessment");
 
-// ==================== FIXED ASSESSMENT ROUTE ====================
+/* ==================== NORMALIZATION HELPERS ==================== */
 
-app.post('/api/assessments', authenticateToken, async (req, res) => {
+// ==================== CORRECTED NORMALIZATION HELPERS ====================
+
+/**
+ * Normalize FORM results to ADHD severity (0-100)
+ * Input: questionnaire scores (0-27 per category)
+ * Output: 0-100 where higher = more ADHD symptoms
+ */
+function normalizeForm(form) {
+  if (!form || typeof form.composite_score !== "number") return null;
+  
+  // Form composite_score is already 0-100 ADHD severity
+  // (calculated from inattentive + hyperactive scores)
+  return Math.round(form.composite_score);
+}
+
+/**
+ * Normalize VIDEO results to ADHD severity (0-100)
+ * Input: composite_score 0-1 (0 = no ADHD, 1 = severe ADHD)
+ * Output: 0-100 where higher = more ADHD symptoms
+ */
+function normalizeVideo(video) {
+  if (!video || typeof video.composite_score !== "number") return null;
+  
+  // Video returns 0-1 scale where higher = more ADHD
+  // Convert to 0-100 scale
+  return Math.round(video.composite_score * 100);
+}
+
+/**
+ * Normalize GAMES results to ADHD severity (0-100)
+ * Input: composite_score 0-100 where higher = more ADHD symptoms
+ * Output: 0-100 where higher = more ADHD symptoms
+ */
+function normalizeGames(game) {
+  if (!game || typeof game.composite_score !== "number") return null;
+  
+  // Games model already returns 0-100 ADHD severity
+  // Python calculation: composite_score = 100 - normal_composite
+  // Where normal_composite is weighted average of GOOD performance scores
+  // So higher composite_score = worse performance = more ADHD
+  return Math.round(game.composite_score);
+}
+
+/**
+ * Normalize domain scores from games model to ADHD severity
+ * Python returns: higher = better performance (less ADHD)
+ * We need: higher = more ADHD symptoms
+ */
+function normalizeDomainScores(gameResult) {
+  if (!gameResult?.domain_scores) {
+    return {
+      attention: 0,
+      impulsivity: 0,
+      working_memory: 0
+    };
+  }
+
+  const domains = gameResult.domain_scores;
+
+  // Invert: 100 - score (because Python scores are "higher = better")
+  return {
+    attention: Math.round(100 - (domains.attention || 0)),
+    impulsivity: Math.round(100 - (domains.impulsivity || 0)),
+    working_memory: Math.round(100 - (domains.working_memory || 0))
+  };
+}
+
+/* ==================== RESULT COMBINATION LOGIC ==================== */
+
+/**
+ * Combine multiple assessment results with weighted average
+ * All inputs should be 0-100 ADHD severity scale
+ */
+function combineResults({ formResult, gameResult, videoResult }) {
+  const f = normalizeForm(formResult);
+  const g = normalizeGames(gameResult);
+  const v = normalizeVideo(videoResult);
+
+  console.log('📊 Normalized Scores (0-100 ADHD severity):');
+  console.log(`   Form: ${f !== null ? f : 'N/A'}`);
+  console.log(`   Games: ${g !== null ? g : 'N/A'}`);
+  console.log(`   Video: ${v !== null ? v : 'N/A'}`);
+
+  // All three available: 30% form, 35% games, 35% video
+  if (f !== null && g !== null && v !== null) {
+    const combined = f * 0.3 + g * 0.35 + v * 0.35;
+    console.log(`   Combined: ${combined.toFixed(2)} (all three)`);
+    return buildFinal(combined, ["form", "games", "video"]);
+  }
+
+  // Games + Video: 60% games, 40% video
+  if (g !== null && v !== null) {
+    const combined = g * 0.6 + v * 0.4;
+    console.log(`   Combined: ${combined.toFixed(2)} (games + video)`);
+    return buildFinal(combined, ["games", "video"]);
+  }
+
+  // Only games
+  if (g !== null) {
+    console.log(`   Combined: ${g} (games only)`);
+    return buildFinal(g, ["games"]);
+  }
+
+  // Only form
+  if (f !== null) {
+    console.log(`   Combined: ${f} (form only)`);
+    return buildFinal(f, ["form"]);
+  }
+
+  // Only video
+  if (v !== null) {
+    console.log(`   Combined: ${v} (video only)`);
+    return buildFinal(v, ["video"]);
+  }
+
+  return null;
+}
+
+/**
+ * Build final result object with risk categorization
+ * @param {number} score - ADHD severity score (0-100)
+ * @param {string[]} sources - Data sources used
+ */
+function buildFinal(score, sources) {
+  return {
+    composite_score: Number(score.toFixed(2)),
+    likelihood:
+      score >= 75 ? "HIGH" :
+      score >= 60 ? "MODERATE-HIGH" :
+      score >= 45 ? "MODERATE" :
+      score >= 30 ? "LOW-MODERATE" : "LOW",
+    risk_level:
+      score >= 75 ? "high" :
+      score >= 60 ? "moderate-high" :
+      score >= 45 ? "moderate" :
+      score >= 30 ? "low-moderate" : "low",
+    sources_used: sources,
+  };
+}
+
+/* ==================== FORM MODEL CALCULATION ==================== */
+
+/**
+ * Calculate form-based ADHD assessment
+ * Uses DSM-5 questionnaire scores
+ */
+function calculateFormResult(questionnaire) {
+  if (!questionnaire?.inattentiveScore && !questionnaire?.hyperactiveScore) {
+    return null;
+  }
+
+  const inattentive = questionnaire.inattentiveScore || 0;
+  const hyperactive = questionnaire.hyperactiveScore || 0;
+
+  // Each category: 0-27 (9 questions × 0-3 points each)
+  // Calculate percentage of maximum possible score
+  const inattentivePercent = (inattentive / 27) * 100;
+  const hyperactivePercent = (hyperactive / 27) * 100;
+
+  // Average both categories
+  const composite_score = (inattentivePercent + hyperactivePercent) / 2;
+
+  return {
+    composite_score: Math.round(composite_score * 100) / 100,
+    likelihood: 
+      composite_score >= 75 ? "HIGH" :
+      composite_score >= 60 ? "MODERATE-HIGH" :
+      composite_score >= 45 ? "MODERATE" :
+      composite_score >= 30 ? "LOW-MODERATE" : "LOW",
+    risk_level:
+      composite_score >= 75 ? "high" :
+      composite_score >= 60 ? "moderate-high" :
+      composite_score >= 45 ? "moderate" :
+      composite_score >= 30 ? "low-moderate" : "low",
+    domain_scores: {
+      inattentive: Math.round(inattentivePercent * 100) / 100,
+      hyperactive: Math.round(hyperactivePercent * 100) / 100
+    }
+  };
+}
+
+/* ==================== FIXED ASSESSMENT ROUTE ==================== */
+
+app.post("/api/assessments", authenticateToken, async (req, res) => {
   try {
-    console.log('\n' + '='.repeat(80));
-    console.log('📥 NEW ASSESSMENT REQUEST');
-    console.log('='.repeat(80));
-    console.log('📊 Request body keys:', Object.keys(req.body));
+    console.log("\n" + "=".repeat(80));
+    console.log("📋 NEW ASSESSMENT REQUEST");
+    console.log("=".repeat(80));
 
-    // Extract task data
     const taskPerformance = req.body.taskPerformance || {};
     const goNoGo = taskPerformance.goNoGo || req.body.goNoGo || null;
     const nBack = taskPerformance.nBack || req.body.nBack || null;
     const stroop = taskPerformance.stroop || req.body.stroop || null;
-    const questionnaire = req.body.questionnaire || null;
     const mouseTracking = req.body.mouseTracking || null;
-    let modelResult = req.body.modelResult || null;
+    const questionnaire = req.body.questionnaire || null;
+    const videoUrl = req.body.videoUrl || null;
 
-    // Get age from request or user profile
+    /* ==================== AGE ==================== */
     let age = req.body.age || 12;
 
     if (!req.body.age) {
       try {
-        const user = await User.findById(req.user.userId).select(
-          'age dateOfBirth'
-        );
+        const user = await User.findById(req.user.userId).select("age dateOfBirth");
         if (user?.age) {
           age = user.age;
-          console.log(`📅 Using age from user profile: ${age}`);
         } else if (user?.dateOfBirth) {
-          const birthDate = new Date(user.dateOfBirth);
-          const today = new Date();
-          age = today.getFullYear() - birthDate.getFullYear();
-          console.log(`📅 Calculated age from DOB: ${age}`);
+          age = new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear();
         }
       } catch (err) {
-        console.log('⚠️ Could not fetch user age, using default: 12');
+        console.log("⚠️ Using default age: 12");
       }
     }
 
-    console.log('🎮 Task data present:', {
-      goNoGo: goNoGo ? '✅' : '❌',
-      nBack: nBack ? '✅' : '❌',
-      stroop: stroop ? '✅' : '❌',
-      questionnaire: questionnaire ? '✅' : '❌',
-      mouseTracking: mouseTracking ? '✅' : '❌',
-      age: age,
+    console.log(`👤 User age: ${age}`);
+
+    /* ==================== GAMES MODEL ==================== */
+    let gameModelResult = null;
+
+    if (goNoGo || nBack || stroop) {
+      try {
+        const input = { age };
+        if (goNoGo) input.goNoGo = goNoGo;
+        if (nBack) input.nBack = nBack;
+        if (stroop) input.stroop = stroop;
+
+        console.log("🎮 Running games model...");
+        gameModelResult = await runPythonAssessment(input);
+        
+        if (gameModelResult?.error) {
+          console.error("❌ Games model error:", gameModelResult.error);
+          gameModelResult = null;
+        } else {
+          console.log(`✅ Games composite: ${gameModelResult.composite_score} (${gameModelResult.likelihood})`);
+          console.log(`   Domain scores (Python - higher=better):`);
+          console.log(`     Attention: ${gameModelResult.domain_scores?.attention || 0}`);
+          console.log(`     Impulsivity: ${gameModelResult.domain_scores?.impulsivity || 0}`);
+          console.log(`     Working Memory: ${gameModelResult.domain_scores?.working_memory || 0}`);
+        }
+      } catch (err) {
+        console.error("❌ Games model failed:", err.message);
+        gameModelResult = null;
+      }
+    }
+
+    /* ==================== VIDEO MODEL ==================== */
+    let videoModelResult = null;
+
+    if (videoUrl) {
+      try {
+        console.log("🎥 Running video model...");
+        videoModelResult = await runVideoAssessment(videoUrl);
+        
+        if (videoModelResult?.error) {
+          console.error("❌ Video model error:", videoModelResult.error);
+          videoModelResult = null;
+        } else {
+          console.log(`✅ Video result: ${videoModelResult.composite_score} (${videoModelResult.likelihood})`);
+        }
+      } catch (err) {
+        console.error("❌ Video model failed:", err.message);
+        videoModelResult = null;
+      }
+    }
+
+    /* ==================== FORM MODEL ==================== */
+    let formModelResult = null;
+
+    if (questionnaire?.inattentiveScore != null || questionnaire?.hyperactiveScore != null) {
+      console.log("📝 Calculating form assessment...");
+      formModelResult = calculateFormResult(questionnaire);
+      console.log(`✅ Form result: ${formModelResult.composite_score} (${formModelResult.likelihood})`);
+    }
+
+    /* ==================== COMBINE RESULTS ==================== */
+    console.log("\n🧮 Combining results...");
+    
+    const combined = combineResults({
+      formResult: formModelResult,
+      gameResult: gameModelResult,
+      videoResult: videoModelResult,
     });
 
-    // Validate that we have at least some data
-    if (
-      !goNoGo &&
-      !nBack &&
-      !stroop &&
-      !questionnaire &&
-      !mouseTracking &&
-      !modelResult
-    ) {
-      return res.status(400).json({
-        error: 'No assessment data provided',
-        received: Object.keys(req.body),
+    if (!combined) {
+      console.log("❌ No valid assessment data provided");
+      return res.status(400).json({ 
+        error: "No valid assessment data provided",
+        hint: "Provide at least one of: questionnaire, games, or video"
       });
     }
 
-    // If no modelResult provided, run Python assessment
-    if (!modelResult || Object.keys(modelResult).length === 0) {
-      const hasTaskData = goNoGo || nBack || stroop;
+    console.log(`\n🎯 FINAL RESULT: ${combined.composite_score} (${combined.likelihood})`);
+    console.log(`📊 Sources: ${combined.sources_used.join(", ")}`);
 
-      if (hasTaskData) {
-        console.log('⚙️ Running Python model with age:', age);
+    // Normalize domain scores (invert from "higher=better" to "higher=worse")
+    const normalizedDomainScores = normalizeDomainScores(gameModelResult);
+    
+    console.log(`\n📊 Domain Scores (normalized to ADHD severity):`);
+    console.log(`   Attention: ${normalizedDomainScores.attention}`);
+    console.log(`   Impulsivity: ${normalizedDomainScores.impulsivity}`);
+    console.log(`   Working Memory: ${normalizedDomainScores.working_memory}`);
 
-        // Prepare input for Python
-        const pythonInput = {age: age};
-        if (goNoGo) pythonInput.goNoGo = goNoGo;
-        if (nBack) pythonInput.nBack = nBack;
-        if (stroop) pythonInput.stroop = stroop;
-
-        console.log(
-          '📤 Sending to Python:',
-          JSON.stringify(pythonInput, null, 2)
-        );
-
-        try {
-          modelResult = await runPythonAssessment(pythonInput);
-          console.log(
-            '✅ Python returned:',
-            JSON.stringify(modelResult, null, 2)
-          );
-
-          if (modelResult.error) {
-            throw new Error(`Python model error: ${modelResult.error}`);
-          }
-        } catch (err) {
-          console.error('❌ Python assessment failed:', err);
-          console.log('⚠️ Using JavaScript fallback calculation');
-
-          // Fallback calculation
-          modelResult = calculateFallbackScores(goNoGo, nBack, stroop, age);
-        }
-      } else {
-        console.log('⚠️ No task data available, creating minimal result');
-        modelResult = {
-          composite_score: 0,
-          likelihood: 'INCOMPLETE',
-          risk_level: 'unknown',
-          domain_scores: {attention: 0, impulsivity: 0, working_memory: 0},
-          features: {},
-        };
-      }
-    }
-
-    // Clean and validate modelResult
-    const cleanModelResult = {
-      composite_score: Number(modelResult?.composite_score ?? 0),
-      likelihood: modelResult?.likelihood || 'UNKNOWN',
-      risk_level: modelResult?.risk_level || 'unknown',
-      age_group: modelResult?.age_group || null,
-      domain_scores: {
-        attention: Number(modelResult?.domain_scores?.attention ?? 0),
-        impulsivity: Number(modelResult?.domain_scores?.impulsivity ?? 0),
-        working_memory: Number(modelResult?.domain_scores?.working_memory ?? 0),
-      },
-      features: modelResult?.features || {},
-    };
-
-    console.log('📊 Final cleaned model result:', cleanModelResult);
-
-    // Create assessment document
+    /* ==================== SAVE TO DATABASE ==================== */
     const assessment = new Assessment({
       userId: req.user.userId,
-      questionnaire: questionnaire,
-      goNoGo: goNoGo,
-      nBack: nBack,
-      stroop: stroop,
-      mouseTracking: mouseTracking,
-      modelResult: cleanModelResult,
+      questionnaire,
+      goNoGo,
+      nBack,
+      stroop,
+      mouseTracking,
+      videoUrl,
+
+      modelResult: {
+        composite_score: combined.composite_score,
+        likelihood: combined.likelihood,
+        risk_level: combined.risk_level,
+        
+        // Domain scores - NORMALIZED to ADHD severity (higher = worse)
+        domain_scores: normalizedDomainScores,
+        
+        // Store individual component results
+        components: {
+          form: formModelResult,
+          games: gameModelResult, // Keep original with domain scores (higher=better)
+          video: videoModelResult
+        },
+        
+        features: {
+          ...(gameModelResult?.features || {}),
+          video: videoModelResult?.features || {},
+          sources_used: combined.sources_used,
+        },
+      },
+
       overallResult: {
-        finalClassification: cleanModelResult.likelihood,
-        confidence: cleanModelResult.composite_score,
-        recommendations: generateRecommendations(cleanModelResult),
+        finalClassification: combined.likelihood,
+        confidence: combined.composite_score,
+        componentScores: {
+          form: formModelResult?.composite_score,
+          games: gameModelResult?.composite_score,
+          video: videoModelResult?.composite_score
+        }
       },
     });
 
     const saved = await assessment.save();
 
-    // Update user's assessment list
     await User.findByIdAndUpdate(req.user.userId, {
-      $push: {assessments: saved._id},
+      $push: { assessments: saved._id },
     });
 
-    console.log('✅ Assessment saved with ID:', saved._id);
-    console.log('='.repeat(80) + '\n');
+    console.log("✅ Assessment saved:", saved._id);
+    console.log("=".repeat(80) + "\n");
 
     res.status(201).json({
-      message: '✅ Assessment saved successfully',
+      message: "✅ Assessment completed successfully",
       assessment: saved,
+      summary: {
+        composite_score: combined.composite_score,
+        likelihood: combined.likelihood,
+        risk_level: combined.risk_level,
+        sources_used: combined.sources_used,
+        domain_scores: normalizedDomainScores
+      }
     });
-  } catch (error) {
-    console.error('❌ Assessment error:', error);
-    console.error('Stack:', error.stack);
-    res.status(500).json({
-      error: error.message,
-      details: error.stack,
+
+  } catch (err) {
+    console.error("❌ Assessment error:", err);
+    console.error("Stack:", err.stack);
+    console.error("=".repeat(80) + "\n");
+    
+    res.status(500).json({ 
+      error: err.message,
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 });
