@@ -26,7 +26,6 @@ const STROOP_COLORS = [
   {name: 'YELLOW', hex: '#FFD600'},
 ];
 
-// const FASTAPI_BASE_URL = 'http://localhost:10000';
 const BACKEND_URL = 'https://adhd-assessment-backend.onrender.com';
 
 export default function MultiGameAssessment() {
@@ -35,7 +34,7 @@ export default function MultiGameAssessment() {
   const [selectedGames, setSelectedGames] = useState([]);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [overallState, setOverallState] = useState('selection');
-  const [allGameResults, setAllGameResults] = useState({});
+  const allGameResultsRef = useRef({});
 
   const [videoStream, setVideoStream] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
@@ -119,9 +118,7 @@ export default function MultiGameAssessment() {
 
     return () => {
       stopRecordingAndCleanup();
-      if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-      }
+      if (videoStream) videoStream.getTracks().forEach(track => track.stop());
     };
   }, []);
 
@@ -210,6 +207,7 @@ export default function MultiGameAssessment() {
     misses: 0,
     falseAlarms: 0,
     correctRejections: 0,
+    errors: 0,
   });
 
   const startCurrentGame = gameType => {
@@ -434,7 +432,7 @@ export default function MultiGameAssessment() {
       };
     }
 
-    setAllGameResults(prev => ({...prev, [gameType]: gameData}));
+    allGameResultsRef.current[gameType] = gameData;
 
     if (currentGameIndex + 1 < selectedGames.length) {
       setTimeout(() => {
@@ -455,25 +453,27 @@ export default function MultiGameAssessment() {
 
     if (!videoBlob || videoBlob.size === 0) {
       setApiMessage('⚠️ No video recorded');
-      await saveResults(null, null);
+      await saveResults(null);
       return;
     }
 
     setApiMessage('💾 Saving assessment results...');
-    await saveResults(null, videoBlob);
+    await saveResults(videoBlob);
   };
 
-  const saveResults = async (_, videoBlob) => {
+  const saveResults = async videoBlob => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No auth token');
 
       const payload = {
-        goNoGo: allGameResults.goNoGo || null,
-        nBack: allGameResults.nBack || null,
-        stroop: allGameResults.stroop || null,
-        mouseTracking: allGameResults.mouse || null,
+        taskPerformance: {
+          goNoGo: allGameResultsRef.current.goNoGo || null,
+          nBack: allGameResultsRef.current.nBack || null,
+          stroop: allGameResultsRef.current.stroop || null,
+          // mouseTracking: add if available
+        },
       };
 
       console.log('📦 Sending payload:', payload);
@@ -503,7 +503,6 @@ export default function MultiGameAssessment() {
       setLoading(false);
     }
   };
-
   // ==================== FRONTEND CHANGES NEEDED ====================
 
   // UPDATE YOUR uploadVideoToMongo function in the frontend:
