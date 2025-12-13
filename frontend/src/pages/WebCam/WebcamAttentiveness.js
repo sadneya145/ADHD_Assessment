@@ -511,7 +511,7 @@ export default function MultiGameAssessment() {
         }
 
         setApiMessage('✅ All done! Redirecting...');
-        setTimeout(() => navigate('/home/results'), 2000);
+        setTimeout(() => navigate(`/home/results/${assessmentId}`), 2000);
       } else {
         throw new Error(data.error || 'Failed to save');
       }
