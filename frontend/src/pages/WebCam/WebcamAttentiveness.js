@@ -451,72 +451,6 @@ export default function MultiGameAssessment() {
     await saveResults(null, videoBlob);
   };
 
-  // const uploadAndAnalyzeVideo = async videoBlob => {
-  //   try {
-  //     const fileSizeMB = (videoBlob.size / 1024 / 1024).toFixed(2);
-  //     console.log('📤 Uploading video:', fileSizeMB, 'MB');
-  //     setApiMessage(`📤 Uploading ${fileSizeMB} MB video...`);
-
-  //     const formData = new FormData();
-  //     formData.append('file', videoBlob, `adhd_multi_test_${Date.now()}.webm`);
-
-  //     const response = await fetch(`${BACKEND_URL}/analyze/video`, {
-  //       method: 'POST',
-  //       body: formData,
-  //     });
-
-  //     if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
-
-  //     const result = await response.json();
-  //     console.log('✅ Upload successful, job:', result.job_id);
-  //     setApiMessage(`⏳ Analyzing video (Job: ${result.job_id})...`);
-
-  //     return await pollForResults(result.job_id);
-  //   } catch (err) {
-  //     console.error('❌ Upload error:', err);
-  //     setApiMessage(`❌ Upload failed: ${err.message}`);
-  //     return null;
-  //   }
-  // };
-
-  // const pollForResults = async (jobId, maxAttempts = 80) => {
-  //   setApiMessage('🔍 Analyzing attention patterns...');
-  //   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-  //     try {
-  //       const response = await fetch(`${BACKEND_URL}/results/${jobId}`);
-  //       if (!response.ok) {
-  //         if (attempt < 3) {
-  //           await new Promise(resolve => setTimeout(resolve, 4000));
-  //           continue;
-  //         }
-  //         throw new Error(`Failed to fetch results: ${response.status}`);
-  //       }
-
-  //       const data = await response.json();
-  //       if (data.status === 'completed' && data.results) {
-  //         if (
-  //           data.results.overall_score !== undefined &&
-  //           data.results.risk_level !== undefined
-  //         ) {
-  //           setApiMessage('✅ ADHD Analysis complete!');
-  //           return data.results;
-  //         }
-  //       } else if (data.status === 'error') {
-  //         return null;
-  //       }
-
-  //       if (attempt % 5 === 0 && attempt > 0) {
-  //         setApiMessage(`⏳ Still analyzing... (${attempt * 2}s elapsed)`);
-  //       }
-  //       await new Promise(resolve => setTimeout(resolve, 2000));
-  //     } catch (err) {
-  //       if (attempt >= maxAttempts - 1) return null;
-  //       await new Promise(resolve => setTimeout(resolve, 2000));
-  //     }
-  //   }
-  //   return null;
-  // };
-
   const saveResults = async (adhdResults, videoBlob) => {
     try {
       setLoading(true);
@@ -544,7 +478,9 @@ export default function MultiGameAssessment() {
           };
 
       const combinedResults = {
-        taskPerformance: allGameResults,
+        goNoGo: allGameResults.goNoGo || null,
+        nBack: allGameResults.nBack || null,
+        stroop: allGameResults.stroop || null,
         modelResult,
         timestamp: new Date().toISOString(),
       };

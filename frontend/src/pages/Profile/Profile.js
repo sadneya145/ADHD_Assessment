@@ -11,8 +11,11 @@ import {
   Edit,
 } from 'lucide-react';
 import './Profile.css';
+import {useNavigate} from 'react-router-dom';
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
+
   const [profile, setProfile] = useState(null);
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,9 +34,10 @@ export default function ProfilePage() {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem('token');
+
       if (!token) {
-        setError('Please log in to view your profile');
-        setLoading(false);
+        localStorage.removeItem('token');
+        navigate('/login', {replace: true});
         return;
       }
 
@@ -46,7 +50,11 @@ export default function ProfilePage() {
         }
       );
 
-      if (!res.ok) throw new Error('Failed to fetch profile');
+      if (!res.ok) {
+        localStorage.removeItem('token');
+        navigate('/login', {replace: true});
+        return;
+      }
 
       const data = await res.json();
       setProfile(data);
@@ -55,13 +63,19 @@ export default function ProfilePage() {
         age: data.user.age || '',
       });
     } catch (err) {
-      setError(err.message);
+      localStorage.removeItem('token');
+      navigate('/login', {replace: true});
     }
   };
 
   const fetchAssessmentHistory = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login', {replace: true});
+        return;
+      }
+
       const res = await fetch(
         'https://adhd-assessment-backend.onrender.com/api/assessments/history?limit=20',
         {
@@ -71,12 +85,17 @@ export default function ProfilePage() {
         }
       );
 
-      if (!res.ok) throw new Error('Failed to fetch history');
+      if (!res.ok) {
+        localStorage.removeItem('token');
+        navigate('/login', {replace: true});
+        return;
+      }
 
       const data = await res.json();
       setAssessments(data.assessments);
     } catch (err) {
-      console.error('History error:', err);
+      localStorage.removeItem('token');
+      navigate('/login', {replace: true});
     } finally {
       setLoading(false);
     }
@@ -180,7 +199,7 @@ export default function ProfilePage() {
           </div>
           <div className="profile-info">
             <h2>{profile?.user?.displayName || 'User'}</h2>
-            <p className="profile-email">{profile?.user?.email}</p>
+            {/* <p className="profile-email">{profile?.user?.email}</p> */}
             <p className="profile-joined">
               <Calendar size={16} />
               Joined {new Date(profile?.user?.createdAt).toLocaleDateString()}
@@ -321,7 +340,7 @@ export default function ProfilePage() {
                   <button
                     className="view-btn"
                     onClick={() =>
-                      (window.location.href = `/home/results?id=${assessment._id}`)
+                      navigate(`/home/results/${assessment._id}`)
                     }
                   >
                     <Eye size={18} />

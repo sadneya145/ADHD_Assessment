@@ -14,40 +14,58 @@ const Header = () => {
     }, []);
 
     const fetchUserData = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                setLoading(false);
-                return;
-            }
+  try {
+    const token = localStorage.getItem('token');
 
-            const res = await fetch('https://adhd-assessment-backend.onrender.com/api/profile', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+    // 🔥 No token → go to login
+    if (!token) {
+      setLoading(false);
+      navigate('/login');
+      return;
+    }
 
-            if (res.ok) {
-                const data = await res.json();
-                setUser({
-                    name: data.user.displayName || data.user.email.split('@')[0],
-                    email: data.user.email,
-                    avatar: data.user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.user.displayName || 'User')}&background=FF6B6B&color=fff`
-                });
-            }
-        } catch (err) {
-            console.error('Failed to fetch user:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const res = await fetch(
+      'https://adhd-assessment-backend.onrender.com/api/profile',
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    // 🔥 AUTH FAILURE → logout
+    if (!res.ok) {
+      localStorage.removeItem('token');
+      navigate('/login');
+      return;
+    }
+
+    const data = await res.json();
+
+    // ✅ MATCH BACKEND RESPONSE
+    setUser({
+      name: data.user.displayName || data.user.username,
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        data.user.displayName || data.user.username
+      )}&background=667eea&color=fff`,
+    });
+  } catch (err) {
+    console.error('Failed to fetch user:', err);
+    localStorage.removeItem('token');
+    navigate('/login');
+  } finally {
+    setLoading(false);
+  }
+};
+
+    
 
     const navItems = [
         { to: "/", label: "Home", emoji: "🏠", color: "#FF6B6B" },
         { to: "/home/games", label: "Games", emoji: "🎮", color: "#4ECDC4" },
         { to: "/home/webcam", label: "Video", emoji: "📹", color: "#95E1D3" },
         { to: "/home/form", label: "Form", emoji: "📝", color: "#FFE66D" },
-        { to: "/results", label: "Results", emoji: "📊", color: "#C4A1FF" },
+        // { to: "/results", label: "Results", emoji: "📊", color: "#C4A1FF" },
         { to: "/home/about", label: "About", emoji: "ℹ️", color: "#A8E6CF" }
     ];
 

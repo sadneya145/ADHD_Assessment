@@ -1,5 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import {BrowserRouter as Router, Routes, Route} from 'react-router-dom';
+
 import Login from './pages/Login/Login';
 import Signup from './pages/Signup/Signup';
 import Home from './pages/Home/Home';
@@ -10,28 +11,103 @@ import StroopTask from './pages/Stroop/Stroop';
 import WebcamAttentiveness from './pages/WebCam/WebcamAttentiveness';
 import Mouse from './pages/Mouse/Mouse';
 import About from './pages/About/About';
-import Game from './pages/Games/Games';
-import ResultsPage from './pages/Result/Result';
 import Games from './pages/Games/Games';
+import ResultsPage from './pages/Result/Result';
 import ProfilePage from './pages/Profile/Profile';
+
+import ProtectedRoute from './ProtectedRoute';
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup/>} />
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
-        <Route path="/home/form" element={<Form />} />
-        <Route path="/home/Nback" element={<NBackTask />} />
-        <Route path="/home/GoNoGo" element={<GoNoGoTask />} />
-        <Route path="/home/Stroop" element={<StroopTask />} />
-        <Route path="/home/WebCam" element={< WebcamAttentiveness />} />
-        <Route path="/home/mouse" element={< Mouse />} />
-        <Route path='/home/games' element={<Games />} />
-        <Route path='/home/about' element={<About />} />
-        <Route path="/home/results" element={<ResultsPage />} />
-        <Route path="/home/profile" element={<ProfilePage/>} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/home/about" element={<About />} />
+
+        {/* Protected Routes */}
+        <Route
+          path="/home/form"
+          element={
+            <ProtectedRoute>
+              <Form />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/home/Nback"
+          element={
+            <ProtectedRoute>
+              <NBackTask />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/home/GoNoGo"
+          element={
+            <ProtectedRoute>
+              <GoNoGoTask />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/home/Stroop"
+          element={
+            <ProtectedRoute>
+              <StroopTask />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/home/WebCam"
+          element={
+            <ProtectedRoute>
+              <WebcamAttentiveness />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/home/mouse"
+          element={
+            <ProtectedRoute>
+              <Mouse />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/home/games"
+          element={
+            <ProtectedRoute>
+              <Games />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/home/results/:id"
+          element={
+            <ProtectedRoute>
+              <ResultsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/home/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </Router>
   );
