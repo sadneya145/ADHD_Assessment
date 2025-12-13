@@ -408,16 +408,28 @@ export default function MultiGameAssessment() {
     let gameData = {};
     if (gameType === 'goNoGo') {
       gameData = {
-        ...score,
+        hits: score.hits || 0,
+        misses: score.misses || 0,
+        falseAlarms: score.falseAlarms || 0,
+        correctRejections: score.correctRejections || 0,
         avgReactionTime: avgRT,
-        totalRounds: GO_TOTAL_ROUNDS,
+        reactionTimes: reactionTimes || [],
       };
     } else if (gameType === 'nBack') {
-      gameData = {...score, nLevel: nBack, totalRounds: N_TOTAL_ROUNDS};
+      gameData = {
+        nLevel: nBack,
+        hits: score.hits || 0,
+        misses: score.misses || 0,
+        falseAlarms: score.falseAlarms || 0,
+        correctRejections: score.correctRejections || 0,
+        totalRounds: N_TOTAL_ROUNDS,
+      };
     } else if (gameType === 'stroop') {
       gameData = {
-        ...score,
+        score: score.hits || 0,
+        errors: score.errors || 0,
         avgReactionTime: avgRT,
+        reactionTimes,
         totalRounds: STROOP_TOTAL_ROUNDS,
       };
     }
@@ -451,41 +463,20 @@ export default function MultiGameAssessment() {
     await saveResults(null, videoBlob);
   };
 
-  const saveResults = async (adhdResults, videoBlob) => {
+  const saveResults = async (_, videoBlob) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      if (!token) throw new Error('No auth token found');
+      if (!token) throw new Error('No auth token');
 
-      const modelResult = adhdResults
-        ? {
-            composite_score: adhdResults.composite_score || 0,
-            likelihood: adhdResults.likelihood || 'Unknown',
-            risk_level: adhdResults.risk_level || 'unknown',
-            domain_scores: {
-              attention: adhdResults.domain_scores?.attention || 0,
-              impulsivity: adhdResults.domain_scores?.impulsivity || 0,
-              working_memory: adhdResults.domain_scores?.working_memory || 0,
-            },
-            features: adhdResults.features || {},
-          }
-        : {
-            composite_score: 0,
-            likelihood: 'Unknown',
-            risk_level: 'unknown',
-            domain_scores: {attention: 0, impulsivity: 0, working_memory: 0},
-            features: {},
-          };
-
-      const combinedResults = {
+      const payload = {
         goNoGo: allGameResults.goNoGo || null,
         nBack: allGameResults.nBack || null,
         stroop: allGameResults.stroop || null,
-        modelResult,
-        timestamp: new Date().toISOString(),
+        mouseTracking: allGameResults.mouse || null,
       };
 
-      console.log('💾 Saving combined results');
+      console.log('📦 Sending payload:', payload);
 
       const res = await fetch(`${BACKEND_URL}/api/assessments`, {
         method: 'POST',
@@ -493,31 +484,21 @@ export default function MultiGameAssessment() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(combinedResults),
+        body: JSON.stringify(payload),
       });
 
+      if (!res.ok) throw new Error('Assessment save failed');
+
       const data = await res.json();
-      console.log('📥 Backend response:', data);
+      const assessmentId = data.assessment._id;
 
-      if (res.ok) {
-        console.log('✅ Results saved successfully');
-
-        // CRITICAL FIX: Use correct field name
-        const assessmentId = data.assessment?._id;
-
-        if (videoBlob && assessmentId) {
-          setApiMessage('📤 Uploading video...');
-          await uploadVideoToMongo(videoBlob, assessmentId);
-        }
-
-        setApiMessage('✅ All done! Redirecting...');
-        setTimeout(() => navigate(`/home/results/${assessmentId}`), 2000);
-      } else {
-        throw new Error(data.error || 'Failed to save');
+      if (videoBlob && assessmentId) {
+        await uploadVideoToMongo(videoBlob, assessmentId);
       }
+
+      navigate(`/home/results/${assessmentId}`);
     } catch (err) {
-      console.error('❌ Save error:', err);
-      setApiMessage(`❌ Error: ${err.message}`);
+      console.error('❌ Save failed:', err);
     } finally {
       setLoading(false);
     }
