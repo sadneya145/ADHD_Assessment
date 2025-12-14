@@ -285,7 +285,9 @@
 
 .scientific-cards {
     display: grid;
-    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 2.5rem;
+    margin-top: 3rem;
 }
 
 .scientific-card {

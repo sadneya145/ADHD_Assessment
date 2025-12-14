@@ -305,7 +305,7 @@ export default function StroopTask() {
     <>
       <Header />
       <div className="stroop-container">
-        <div className="game-card">
+        <div className="game-card-stroop">
           <div className="game-header">
             <div className="round-info">
               Round {round + 1} of {TOTAL_ROUNDS}
