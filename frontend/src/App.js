@@ -14,8 +14,14 @@ import About from './pages/About/About';
 import Games from './pages/Games/Games';
 import ResultsPage from './pages/Result/Result';
 import ProfilePage from './pages/Profile/Profile';
+import BalloonPopTask from './pages/GoNoGo/BalloonPopTask';
 
 import ProtectedRoute from './ProtectedRoute';
+import AnimalTapTask from './pages/GoNoGo/AnimalTap';
+import PathTraceTask from './pages/GoNoGo/PathTrace';
+import SoundFreeze from './pages/GoNoGo/SoundFreeze';
+import FindSmilingFace from './pages/GoNoGo/FindSmilingFaces';
+import ShapeCatchGame from './pages/GoNoGo/ShapeCatchGame';
 
 function App() {
   return (
@@ -105,6 +111,56 @@ function App() {
           element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+
+         <Route
+          path="/home/BalloonPop"
+          element={
+            <ProtectedRoute>
+              <BalloonPopTask />
+            </ProtectedRoute>
+          }
+        />
+
+         <Route
+          path="/home/AnimalTap"
+          element={
+            <ProtectedRoute>
+              <AnimalTapTask />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="/home/PathTrace"
+          element={
+            <ProtectedRoute>
+              <PathTraceTask />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/home/SoundFreeze"
+          element={
+            <ProtectedRoute>
+              <SoundFreeze />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/home/FindSmilingFaces"
+          element={
+            <ProtectedRoute>
+              <FindSmilingFace />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/home/ShapeCatchGame"
+          element={
+            <ProtectedRoute>
+              <ShapeCatchGame />
             </ProtectedRoute>
           }
         />
