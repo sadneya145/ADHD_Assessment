@@ -1,0 +1,75 @@
+.focus-page{
+display:flex;
+flex-direction:column;
+min-height:100vh;
+background:linear-gradient(180deg,#f0f9ff 0%,#e0f2fe 100%);
+}
+
+.focus-main{
+flex:1;
+padding:5rem 2rem;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.focus-card{
+background:white;
+padding:3rem;
+border-radius:24px;
+box-shadow:0 10px 40px rgba(0,0,0,0.12);
+max-width:500px;
+width:100%;
+text-align:center;
+}
+
+.focus-card h1{
+font-size:2.5rem;
+margin-bottom:1rem;
+}
+
+.focus-card p{
+color:#64748b;
+margin-bottom:2rem;
+}
+
+.breathing-circle{
+width:180px;
+height:180px;
+background:linear-gradient(135deg,#667eea,#764ba2);
+border-radius:50%;
+margin:2rem auto;
+box-shadow:0 8px 25px rgba(0,0,0,0.2);
+}
+
+.animate{
+animation:breathe 4s ease-in-out infinite;
+}
+
+@keyframes breathe{
+0%{
+transform:scale(1);
+}
+50%{
+transform:scale(1.35);
+}
+100%{
+transform:scale(1);
+}
+}
+
+.focus-card button{
+background:linear-gradient(135deg,#667eea,#764ba2);
+border:none;
+color:white;
+padding:.8rem 1.6rem;
+border-radius:40px;
+font-weight:700;
+cursor:pointer;
+transition:.3s;
+}
+
+.focus-card button:hover{
+transform:scale(1.08);
+box-shadow:0 6px 20px rgba(0,0,0,0.2);
+}

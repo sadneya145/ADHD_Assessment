@@ -1,0 +1,104 @@
+.focusbuddy-page{
+display:flex;
+flex-direction:column;
+min-height:100vh;
+background:linear-gradient(180deg,#f0f9ff 0%,#e0f2fe 100%);
+}
+
+.focusbuddy-main{
+flex:1;
+}
+
+/* HERO */
+
+.focusbuddy-hero{
+background:linear-gradient(135deg,#667eea,#764ba2);
+color:white;
+padding:5rem 2rem;
+text-align:center;
+}
+
+.hero-title{
+font-size:3rem;
+font-weight:900;
+margin-bottom:1rem;
+}
+
+.hero-subtitle{
+font-size:1.3rem;
+opacity:0.9;
+}
+
+/* FEATURES */
+
+.focusbuddy-features{
+padding:5rem 2rem;
+max-width:1400px;
+margin:auto;
+}
+
+.section-title{
+text-align:center;
+font-size:2.5rem;
+font-weight:800;
+margin-bottom:3rem;
+}
+
+/* GRID */
+
+.features-grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+gap:2rem;
+}
+
+/* CARDS */
+
+.feature-card{
+background:white;
+padding:2rem;
+border-radius:20px;
+text-align:center;
+box-shadow:0 6px 20px rgba(0,0,0,0.1);
+transition:all .35s ease;
+border:3px solid transparent;
+}
+
+.feature-card:hover{
+transform:translateY(-10px);
+border-color:var(--card-color);
+box-shadow:0 15px 40px rgba(0,0,0,0.15);
+}
+
+.feature-icon{
+font-size:3rem;
+margin-bottom:1rem;
+}
+
+.feature-title{
+font-size:1.5rem;
+font-weight:700;
+margin-bottom:.5rem;
+}
+
+.feature-description{
+color:#64748b;
+margin-bottom:1.5rem;
+}
+
+/* BUTTON */
+
+.feature-btn{
+background:linear-gradient(135deg,#667eea,#764ba2);
+border:none;
+color:white;
+padding:.7rem 1.6rem;
+border-radius:40px;
+font-weight:700;
+cursor:pointer;
+transition:.3s;
+}
+
+.feature-btn:hover{
+transform:scale(1.05);
+}

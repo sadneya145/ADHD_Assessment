@@ -1,0 +1,79 @@
+.focus-page{
+background:#f6f9ff;
+min-height:100vh;
+}
+
+.focus-main{
+display:flex;
+justify-content:center;
+padding:40px;
+}
+
+.focus-card{
+background:white;
+padding:30px;
+border-radius:20px;
+width:450px;
+box-shadow:0 10px 25px rgba(0,0,0,0.1);
+text-align:center;
+font-family:"Comic Sans MS",cursive;
+}
+
+.focus-card h1{
+margin-bottom:10px;
+}
+
+.task-input{
+display:flex;
+gap:10px;
+margin:20px 0;
+flex-wrap:wrap;
+justify-content:center;
+}
+
+.task-input input{
+padding:10px;
+border-radius:10px;
+border:1px solid #ddd;
+}
+
+.task-input button{
+background:#4ECDC4;
+border:none;
+color:white;
+padding:10px 15px;
+border-radius:10px;
+cursor:pointer;
+}
+
+.task-input button:hover{
+background:#36b7ad;
+}
+
+.task-list{
+list-style:none;
+padding:0;
+}
+
+.task-list li{
+background:#f0f5ff;
+margin:10px 0;
+padding:12px;
+border-radius:10px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.delete-btn{
+background:#ff6b6b;
+border:none;
+color:white;
+padding:5px 10px;
+border-radius:8px;
+cursor:pointer;
+}
+
+.delete-btn:hover{
+background:#ff4a4a;
+}

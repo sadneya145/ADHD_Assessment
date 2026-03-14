@@ -22,6 +22,12 @@ import PathTraceTask from './pages/GoNoGo/PathTrace';
 import SoundFreeze from './pages/GoNoGo/SoundFreeze';
 import FindSmilingFace from './pages/GoNoGo/FindSmilingFaces';
 import ShapeCatchGame from './pages/GoNoGo/ShapeCatchGame';
+import FocusBuddy from './pages/Support/FocusBuddy';
+import Breathing from './pages/Support/Breathing';
+import Timetable from './pages/Support/Timetable';
+import Mood from './pages/Support/Mood';
+import FocusTimer from './pages/Support/FocusTimer';
+import TalkingBuddy from './pages/Support/TalkingBuddy';
 
 function App() {
   return (
@@ -122,6 +128,16 @@ function App() {
               <BalloonPopTask />
             </ProtectedRoute>
           }
+        />\
+        
+
+        <Route
+          path="/home/FocusBuddy"
+          element={
+            <ProtectedRoute>
+              <FocusBuddy />
+            </ProtectedRoute>
+          }
         />
 
          <Route
@@ -161,6 +177,47 @@ function App() {
           element={
             <ProtectedRoute>
               <ShapeCatchGame />
+            </ProtectedRoute>
+          }
+        />
+
+         <Route
+          path="/home/focus-timer"
+          element={
+            <ProtectedRoute>
+              <FocusTimer/>
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="/home/mood"
+          element={
+            <ProtectedRoute>
+              <Mood />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="/home/breathing"
+          element={
+            <ProtectedRoute>
+              <Breathing />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="/home/timetable"
+          element={
+            <ProtectedRoute>
+              <Timetable />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="/home/talking-buddy"
+          element={
+            <ProtectedRoute>
+              <TalkingBuddy />
             </ProtectedRoute>
           }
         />
