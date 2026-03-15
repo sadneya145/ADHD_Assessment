@@ -1,262 +1,293 @@
-import React, {useState, useRef, useEffect, useCallback} from 'react';
-import {Circle, Square, Triangle, Star, Download} from 'lucide-react';
-import './MouseAnalysis.css';
-import Header from '../Header/Header';
-import Footer from '../Footer/Footer';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Circle, Square, Triangle, Star, Download } from "lucide-react";
+import "./MouseAnalysis.css";
+import Header from "../Header/Header";
+import Footer from "../Footer/Footer";
 
-const BACKEND_URL = 'https://adhd-assessment-backend.onrender.com'; // or your localhost during dev
-// const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+const BACKEND_URL = "https://adhd-assessment-backend.onrender.com";
+
 const shapeTypes = [
-  {id: 'circle', color: '#FF6B6B', icon: Circle},
-  {id: 'square', color: '#4ECDC4', icon: Square},
-  {id: 'triangle', color: '#FFE66D', icon: Triangle},
-  {id: 'star', color: '#95E1D3', icon: Star},
+  { id: "circle", color: "#FF6B6B", icon: Circle },
+  { id: "square", color: "#4ECDC4", icon: Square },
+  { id: "triangle", color: "#FFE66D", icon: Triangle },
+  { id: "star", color: "#95E1D3", icon: Star }
 ];
 
 const ShapeGame = () => {
+
   const [gameStarted, setGameStarted] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
-  const [mouseData, setMouseData] = useState([]);
-  const [analysisResult, setAnalysisResult] = useState(null);
   const [currentShapes, setCurrentShapes] = useState([]);
   const [draggedShape, setDraggedShape] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
 
   const startTimeRef = useRef(null);
   const gameAreaRef = useRef(null);
 
-  // Scroll behavior fix
+  // IMPORTANT: store mouse data in ref
+  const mouseDataRef = useRef([]);
+
+  const shapeIcons = {
+    circle: Circle,
+    square: Square,
+    triangle: Triangle,
+    star: Star
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
-    return () => {
-      if ('scrollRestoration' in window.history) {
-        window.history.scrollRestoration = 'auto';
-      }
-    };
   }, []);
 
   // Generate shapes
   const generateShapes = useCallback(() => {
-    const shapes = shapeTypes.map((type, idx) => ({
+
+    const shapes = shapeTypes.map((type, i) => ({
       ...type,
-      sourcePos: {x: 50 + idx * 100, y: 450},
-      targetPos: {x: Math.random() * 400 + 100, y: Math.random() * 250 + 50},
-      matched: false,
+      sourcePos: { x: 60 + i * 120, y: 430 },
+      targetPos: {
+        x: Math.random() * 400 + 100,
+        y: Math.random() * 250 + 50
+      },
+      matched: false
     }));
+
     setCurrentShapes(shapes);
+
   }, []);
 
   // Start game
   const startGame = () => {
+
     setGameStarted(true);
     setGameEnded(false);
     setScore(0);
     setTimeLeft(60);
-    setMouseData([]);
     setAnalysisResult(null);
+
+    mouseDataRef.current = [];
+
     startTimeRef.current = Date.now();
+
     generateShapes();
+
   };
 
-  // Timer countdown
+  // Timer
   useEffect(() => {
+
     if (!gameStarted || gameEnded) return;
+
     const timer = setInterval(() => {
+
       setTimeLeft(prev => {
+
         if (prev <= 1) {
-          setGameEnded(true);
           clearInterval(timer);
-          analyzeData();
+          setGameEnded(true);
           return 0;
         }
+
         return prev - 1;
+
       });
+
     }, 1000);
+
     return () => clearInterval(timer);
+
+  }, [gameStarted, gameEnded]);
+
+  // Run analysis AFTER game ends
+  useEffect(() => {
+
+    if (gameEnded && mouseDataRef.current.length > 0) {
+
+      console.log("🎯 Game ended. Mouse points:", mouseDataRef.current.length);
+      analyzeData();
+
+    }
+
+  }, [gameEnded]);
+
+  // Track mouse
+  const trackMouse = useCallback((e) => {
+
+    if (!gameStarted || gameEnded) return;
+    if (!gameAreaRef.current) return;
+
+    const rect = gameAreaRef.current.getBoundingClientRect();
+
+    const point = {
+      time: (Date.now() - startTimeRef.current) / 1000,
+      x: Math.round((e.clientX - rect.left) * 10) / 10,
+      y: Math.round((e.clientY - rect.top) * 10) / 10
+    };
+
+    mouseDataRef.current.push(point);
+
   }, [gameStarted, gameEnded]);
 
   // Drag start
   const handleDragStart = (shape, e) => {
+
     setDraggedShape(shape);
-    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.effectAllowed = "move";
+
   };
 
-  // Drag drop
+  // Drop
   const handleDrop = (targetShape, e) => {
+
     e.preventDefault();
+
     if (!draggedShape || draggedShape.id !== targetShape.id) return;
 
     setCurrentShapes(prev =>
-      prev.map(s => (s.id === targetShape.id ? {...s, matched: true} : s))
+      prev.map(s =>
+        s.id === targetShape.id ? { ...s, matched: true } : s
+      )
     );
+
     setScore(prev => prev + 10);
     setDraggedShape(null);
 
-    // Regenerate shapes when all matched
     if (currentShapes.filter(s => !s.matched).length === 1) {
       setTimeout(generateShapes, 500);
     }
+
   };
 
   const handleDragOver = e => e.preventDefault();
 
-  // / ==================== ALSO UPDATE YOUR MOUSE TRACKING ====================
-  // Make sure your trackMouse function is correctly formatting the data
+  // Validate mouse data
+  const validateMouseData = (data) => {
 
-  const trackMouse = useCallback(
-    e => {
-      if (!gameStarted || gameEnded) return;
+    if (!Array.isArray(data)) return false;
+    if (data.length < 10) return false;
 
-      // Make sure we have the game area ref
-      if (!gameAreaRef.current) {
-        console.warn('⚠️ gameAreaRef not ready');
-        return;
-      }
-
-      const currentTime = (Date.now() - startTimeRef.current) / 1000;
-      const rect = gameAreaRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      // Create properly formatted point
-      const point = {
-        time: currentTime,
-        x: Math.round(x * 10) / 10, // Round to 1 decimal
-        y: Math.round(y * 10) / 10,
-      };
-
-      setMouseData(prev => [...prev, point]);
-    },
-    [gameStarted, gameEnded]
-  );
-
-  // ==================== ADD THIS: Better validation before sending ====================
-  // Add this function to validate your data before sending
-
-  const validateMouseData = data => {
-    console.log('🔍 Validating mouse data...');
-
-    if (!Array.isArray(data)) {
-      console.error('❌ Not an array');
-      return false;
-    }
-
-    if (data.length < 10) {
-      console.error('❌ Too few points:', data.length);
-      return false;
-    }
-
-    // Check first point
-    const first = data[0];
-    if (!first || typeof first.x !== 'number' || typeof first.y !== 'number') {
-      console.error('❌ Invalid point structure:', first);
-      return false;
-    }
-
-    // Check for NaN or Infinity
-    const hasInvalid = data.some(
+    const invalid = data.some(
       p => !isFinite(p.x) || !isFinite(p.y) || !isFinite(p.time)
     );
 
-    if (hasInvalid) {
-      console.error('❌ Contains NaN or Infinity values');
-      return false;
-    }
+    if (invalid) return false;
 
-    console.log('✅ Data validation passed');
     return true;
+
   };
 
-  // Then use it in analyzeData:
+  // Send to backend
   const analyzeData = async () => {
-    const token = localStorage.getItem('token');
 
-    if (!token) {
-      setAnalysisResult({
-        adhd_type: 'N/A',
-        confidence: 0,
-        classifications: {message: 'No auth token found'},
-      });
-      return;
-    }
+    const token = localStorage.getItem("token");
 
-    // Validate before sending
+    const mouseData = mouseDataRef.current;
+
+    console.log("Sending points:", mouseData.length);
+
     if (!validateMouseData(mouseData)) {
+
       setAnalysisResult({
-        adhd_type: 'Invalid Data',
+        adhd_type: "Invalid Data",
         confidence: 0,
-        classifications: {message: 'Mouse data validation failed'},
+        classifications: { message: "Mouse data validation failed" }
       });
+
       return;
+
     }
 
     setLoadingAnalysis(true);
 
     try {
+
       const response = await fetch(`${BACKEND_URL}/api/analyze/mouse`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(mouseData),
+        body: JSON.stringify(mouseData)
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || `Server error: ${response.status}`);
+        throw new Error(result.error || "Server error");
       }
 
       setAnalysisResult(result);
-      localStorage.setItem('lastAnalysis', JSON.stringify(result));
+
     } catch (err) {
-      console.error('❌ Analysis failed:', err.message);
+
+      console.error("Analysis error:", err);
+
       setAnalysisResult({
-        adhd_type: 'Error',
+        adhd_type: "Error",
         confidence: 0,
-        classifications: {error: err.message},
+        classifications: { error: err.message }
       });
+
     } finally {
       setLoadingAnalysis(false);
     }
+
   };
-  // Download raw mouse movement
+
+  // Download mouse data
   const downloadData = () => {
-    const dataStr = JSON.stringify(mouseData, null, 2);
-    const blob = new Blob([dataStr], {type: 'application/json'});
+
+    const dataStr = JSON.stringify(mouseDataRef.current, null, 2);
+
+    const blob = new Blob([dataStr], { type: "application/json" });
+
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+
+    const a = document.createElement("a");
+
     a.href = url;
-    a.download = 'mouse_tracking_data.json';
+    a.download = "mouse_tracking_data.json";
+
     a.click();
+
   };
 
   return (
+
     <div>
+
       <Header />
+
       <div className="game-container-mouse">
+
         <div className="game-inner">
+
           {!gameStarted ? (
+
             <div className="start-screen">
+
               <h1 className="game-title">Shape Match Challenge</h1>
-              <p className="game-subtitle">
-                Drag shapes to their matching outlines as quickly as possible!
-              </p>
+
+              <p>Drag shapes to their matching outlines!</p>
+
               <button onClick={startGame} className="start-button">
                 Start Game
               </button>
+
             </div>
+
           ) : (
+
             <div className="game-content">
+
               <div className="status-bar">
-                <div className="status-text">Score: {score}</div>
-                <div className="status-text">Time: {timeLeft}s</div>
+
+                <div>Score: {score}</div>
+
+                <div>Time: {timeLeft}s</div>
+
               </div>
 
               <div
@@ -264,98 +295,129 @@ const ShapeGame = () => {
                 onMouseMove={trackMouse}
                 className="game-area"
               >
+
                 {currentShapes.map(shape => {
-                  const Icon = shape.icon;
+
+                  const Icon = shapeIcons[shape.id];
+
                   return (
+
                     <div
-                      key={`target-${shape.id}`}
+                      key={"target-" + shape.id}
                       onDrop={e => handleDrop(shape, e)}
                       onDragOver={handleDragOver}
                       style={{
                         left: shape.targetPos.x,
                         top: shape.targetPos.y,
-                        opacity: shape.matched ? 0.3 : 1,
+                        opacity: shape.matched ? 0.3 : 1
                       }}
                       className="target-shape"
                     >
+
                       <div
                         className="target-border"
-                        style={{borderColor: shape.color}}
+                        style={{ borderColor: shape.color }}
                       >
-                        <Icon size={48} color={shape.color} strokeWidth={1} />
+
+                        <Icon size={48} color={shape.color} />
+
                       </div>
+
                     </div>
+
                   );
+
                 })}
 
-                {currentShapes.map(
-                  shape =>
-                    !shape.matched && (
-                      <div
-                        key={`source-${shape.id}`}
-                        draggable
-                        onDragStart={e => handleDragStart(shape, e)}
-                        style={{
-                          left: shape.sourcePos.x,
-                          top: shape.sourcePos.y,
-                          backgroundColor: shape.color,
-                        }}
-                        className="draggable-shape"
-                      >
-                        <shape.icon size={48} color="white" />
-                      </div>
-                    )
-                )}
+                {currentShapes.map(shape => {
+
+                  const Icon = shapeIcons[shape.id];
+
+                  if (shape.matched) return null;
+
+                  return (
+
+                    <div
+                      key={"source-" + shape.id}
+                      draggable
+                      onDragStart={e => handleDragStart(shape, e)}
+                      style={{
+                        left: shape.sourcePos.x,
+                        top: shape.sourcePos.y,
+                        backgroundColor: shape.color
+                      }}
+                      className="draggable-shape"
+                    >
+
+                      <Icon size={48} color="white" />
+
+                    </div>
+
+                  );
+
+                })}
+
               </div>
 
               {gameEnded && (
+
                 <div className="end-screen">
-                  <h2 className="end-title">Game Over!</h2>
-                  <p className="end-score">Final Score: {score}</p>
-                  <p className="end-moves">
-                    Mouse movements recorded: {mouseData.length}
+
+                  <h2>Game Over!</h2>
+
+                  <p>Final Score: {score}</p>
+
+                  <p>
+                    Mouse movements recorded: {mouseDataRef.current.length}
                   </p>
-                  <div className="end-buttons">
-                    <button onClick={startGame} className="play-again-button">
-                      Play Again
-                    </button>
-                    <button onClick={downloadData} className="download-button">
-                      <Download size={20} /> Download Data
-                    </button>
-                  </div>
+
+                  <button onClick={startGame}>
+                    Play Again
+                  </button>
+
+                  <button onClick={downloadData}>
+                    <Download size={18} /> Download Data
+                  </button>
 
                   {loadingAnalysis && <p>Analyzing mouse data...</p>}
 
                   {analysisResult && !loadingAnalysis && (
+
                     <div className="analysis-box">
+
                       <h3>🧠 ADHD Analysis Result</h3>
+
                       <p>
                         <strong>Type:</strong> {analysisResult.adhd_type}
                       </p>
+
                       <p>
-                        <strong>Confidence:</strong>{' '}
+                        <strong>Confidence:</strong>{" "}
                         {analysisResult.confidence.toFixed(1)}%
                       </p>
-                      <ul>
-                        {Object.entries(analysisResult.classifications).map(
-                          ([k, v]) => (
-                            <li key={k}>
-                              <strong>{k}:</strong> {v}
-                            </li>
-                          )
-                        )}
-                      </ul>
+
                     </div>
+
                   )}
+
                 </div>
+
               )}
+
             </div>
+
           )}
+
         </div>
+
       </div>
+
       <Footer />
+
     </div>
+
   );
+
 };
 
 export default ShapeGame;
