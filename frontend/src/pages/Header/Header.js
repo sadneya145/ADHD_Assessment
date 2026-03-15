@@ -66,7 +66,8 @@ const Header = () => {
         { to: "/home/webcam", label: "Video", emoji: "📹", color: "#95E1D3" },
         { to: "/home/form", label: "Form", emoji: "📝", color: "#FFE66D" },
         // { to: "/results", label: "Results", emoji: "📊", color: "#C4A1FF" },
-        { to: "/home/about", label: "About", emoji: "ℹ️", color: "#A8E6CF" }
+        { to: "/home/about", label: "About", emoji: "ℹ️", color: "#A8E6CF" },
+        { to: "/home/FocusBuddy", label: "Focus Buddy", emoji: "🤖", color: "#C4A1FF" }
     ];
 
 
